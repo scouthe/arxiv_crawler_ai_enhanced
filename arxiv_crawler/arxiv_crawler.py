@@ -86,7 +86,8 @@ class ArxivScraper(object):
         self.filt_date_by = "announced_date_first"  # url
         self.order = "-announced_date_first"  # url(结果默认按首次公布日期的降序排列，这样最新公布的会在前面)
         self.total = None  # fetch_all
-        self.step = int(os.environ.get("STEP", "50"))  # url, fetch_all
+        step_value = os.environ.get("STEP", "50")
+        self.step = int(step_value) if step_value else 50  # url, fetch_all
         self.papers: list[Paper] = []  # fetch_all
 
         self.paper_db = PaperDatabase()
@@ -464,7 +465,8 @@ class ArxivScraper(object):
         self.console.log("[bold green]Translating...")
 
         # 从环境变量获取翻译并发限制
-        translation_semaphore = int(os.environ.get("TRANSLATION_SEMAPHORE", "80"))
+        trans_sem_value = os.environ.get("TRANSLATION_SEMAPHORE", "80")
+        translation_semaphore = int(trans_sem_value) if trans_sem_value else 80
         # 限制并发数
         semaphore = asyncio.Semaphore(translation_semaphore)
 

@@ -617,15 +617,14 @@ MIT License - 详见[LICENSE](LICENSE)文件。
 
 ## ⭐ Star History
 
-[![Stargazers over time](https://starchart.cc/dw-dengwei/daily-arXiv-ai-enhanced.svg?variant=adaptive)](https://starchart.cc/dw-dengwei/daily-arXiv-ai-enhanced)
+[![Stargazers over time](https://starchart.cc/scouthe/arxiv_crawler_ai_enhanced.svg?variant=adaptive)](https://starchart.cc/scouthe/arxiv_crawler_ai_enhanced)
 
 ## 📞 联系方式
 
 如有问题或建议，欢迎通过以下方式联系我们：
 
-- GitHub Issues：https://github.com/dw-dengwei/daily-arXiv-ai-enhanced/issues
-- GitHub Discussions：https://github.com/dw-dengwei/daily-arXiv-ai-enhanced/discussions
-- 邮箱：your-email@example.com（替换为实际邮箱）
+- GitHub Issues：https://github.com/scouthe/arxiv_crawler_ai_enhanced/issues
+- GitHub Discussions：https://github.com/scouthe/arxiv_crawler_ai_enhanced/discussions
 
 ## 📚 相关资源
 

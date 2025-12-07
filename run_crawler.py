@@ -43,7 +43,12 @@ def run_crawler(all=False, date_set=None):
     env_proxy = os.environ.get("PROXY", "")
     env_step = os.environ.get("STEP", "")
     
-    # 打印环境变量
+    # 从环境变量读取DeepSeek API配置
+    env_api_key = os.environ.get("OPENAI_API_KEY", "")
+    env_base_url = os.environ.get("OPENAI_BASE_URL", "")
+    env_model_name = os.environ.get("MODEL_NAME", "")
+    
+    # 打印环境变量，隐藏敏感信息
     print("\n--- 环境变量配置 ---")
     print(f"CRAWL_ALL: {env_all}")
     print(f"CRAWL_DATE: {env_date}")
@@ -54,6 +59,9 @@ def run_crawler(all=False, date_set=None):
     print(f"TRANS_TO: {env_trans_to}")
     print(f"PROXY: {env_proxy}")
     print(f"STEP: {env_step}")
+    print(f"OPENAI_API_KEY: {'[SET]' if env_api_key else '[NOT SET]'}")
+    print(f"OPENAI_BASE_URL: {env_base_url if env_base_url else '[NOT SET]'}")
+    print(f"MODEL_NAME: {env_model_name if env_model_name else '[NOT SET]'}")
     print("------------------\n")
     
     # 优先使用函数参数，其次使用环境变量，最后使用默认值

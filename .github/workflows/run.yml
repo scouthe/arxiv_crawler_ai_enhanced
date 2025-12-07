@@ -25,19 +25,17 @@ jobs:
           OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
           MODEL_NAME: ${{ secrets.MODEL_NAME || 'deepseek-chat' }}
           
-          # Other configs from .env
-          CRAWL_ALL: ${{ env.CRAWL_ALL }}
-          CRAWL_DATE: ${{ env.CRAWL_DATE }}
-          MAX_WORKERS: ${{ env.MAX_WORKERS }}
-          CATEGORY_BLACKLIST: ${{ env.CATEGORY_BLACKLIST }}
-          CATEGORY_WHITELIST: ${{ env.CATEGORY_WHITELIST }}
-          OPTIONAL_KEYWORDS: ${{ env.OPTIONAL_KEYWORDS }}
-          TRANS_TO: ${{ env.TRANS_TO }}
-          PROXY: ${{ env.PROXY }}
-          STEP: ${{ env.STEP }}
+          # 其他配置会在Python代码中从.env文件自动读取
         run: |
           today=$(date -u "+%Y-%m-%d")
           echo "Starting to crawl $today arXiv papers..."
+          
+          # Print DeepSeek API configuration (hide sensitive info)
+          echo "\n--- DeepSeek API Configuration ---
+OPENAI_API_KEY: ${OPENAI_API_KEY:+[SET]}
+OPENAI_BASE_URL: ${OPENAI_BASE_URL:-[NOT SET]}
+MODEL_NAME: ${MODEL_NAME:-[NOT SET]}
+---------------------------------\n"
           
           # Check if today's file exists, delete if found
           if [ -f "data/${today}.jsonl" ]; then
