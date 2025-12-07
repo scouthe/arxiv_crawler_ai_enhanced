@@ -2,31 +2,78 @@
 # 生成命令: pip freeze > requirements.txt
 
 # 核心依赖
-arxiv>=2.1.3
-dotenv>=0.9.9
-langchain>=0.3.20
-langchain-openai>=0.3.9
-scrapy>=2.12.0
-tqdm>=4.67.1
+arxiv==2.3.1
+langchain==1.1.0
+langchain-core==1.1.0
+langchain-openai==1.1.0
+scrapy==2.13.4
+tqdm==4.67.1
 
 # 异步HTTP请求
-aiohttp>=3.8.0
+aiohttp==3.13.2
+aiohappyeyeballs==2.6.1
+aiosignal==1.4.0
+frozenlist==1.8.0
+multidict==6.7.0
+yarl==1.22.0
 
 # HTML解析
-beautifulsoup4>=4.12.0
+beautifulsoup4==4.14.2
+soupsieve==2.8
 
 # 命令行界面
-rich>=13.0.0
+rich==14.2.0
 
 # 数据库操作
 # sqlite3 是 Python 标准库，不需要单独安装
 
 # 类型提示
-typing-extensions>=4.0.0
+typing-extensions==4.15.0
 
-# 其他可能需要的依赖
-requests>=2.31.0
-python-dotenv>=1.0.0
+# 其他必要依赖
+dotenv==0.9.9
+python-dotenv==1.2.1
+requests==2.32.5
+openai==2.8.1
+click==8.3.1
+colorama==0.4.6
+certifi==2025.11.12
+charset-normalizer==3.4.4
+idna==3.11
+urllib3==2.5.0
+
+# LangChain相关依赖
+langgraph==1.0.4
+langgraph-checkpoint==3.0.1
+langgraph-prebuilt==1.0.5
+langgraph-sdk==0.2.10
+langsmith==0.4.49
+
+# Scrapy相关依赖
+parsel==1.10.0
+itemadapter==0.12.2
+itemloaders==1.3.2
+queuelib==1.8.0
+w3lib==2.3.1
+lxml==6.0.2
+Protego==0.5.0
+pyOpenSSL==25.3.0
+Twisted==25.5.0
+zope.interface==8.1.1
+
+# 其他辅助依赖
+feedparser==6.0.12
+markdown-it-py==4.0.0
+mdurl==0.1.2
+Pygments==2.19.2
+tiktoken==0.12.0
+
+# Web服务相关依赖
+fastapi==0.124.0
+uvicorn==0.38.0
+pydantic==2.12.5
+pydantic_core==2.41.5
+starlette==0.50.0
 
 # 开发依赖
 # pytest>=8.0.0
