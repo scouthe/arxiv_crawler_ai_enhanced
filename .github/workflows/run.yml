@@ -1,6 +1,3 @@
-# This workflow will install Python dependencies, run tests and lint with a single version of Python
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
-
 name: arXiv-daily-ai-enhanced
 
 on:
@@ -8,167 +5,133 @@ on:
     - cron: "30 1 * * *"
   workflow_dispatch:
 
-
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
+      - uses: actions/checkout@v4
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
         
-    - name: Crawl arXiv papers and generate AI-enhanced content
-      id: crawl_step
-      env:
-        # 从GitHub Secrets获取API配置
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
-        MODEL_NAME: ${{ secrets.MODEL_NAME || 'deepseek-chat' }}
-        
-        # 其他配置从.env文件读取
-        CRAWL_ALL: ${{ env.CRAWL_ALL }}
-        CRAWL_DATE: ${{ env.CRAWL_DATE }}
-        MAX_WORKERS: ${{ env.MAX_WORKERS }}
-        CATEGORY_BLACKLIST: ${{ env.CATEGORY_BLACKLIST }}
-        CATEGORY_WHITELIST: ${{ env.CATEGORY_WHITELIST }}
-        OPTIONAL_KEYWORDS: ${{ env.OPTIONAL_KEYWORDS }}
-        TRANS_TO: ${{ env.TRANS_TO }}
-        PROXY: ${{ env.PROXY }}
-        STEP: ${{ env.STEP }}
-      run: |
-        today=$(date -u "+%Y-%m-%d")
-        echo "开始爬取 $today 的arXiv论文... / Starting to crawl $today arXiv papers..."
-        
-        # 打印环境变量配置 / Print environment variable configuration
-        echo "\n--- 环境变量配置 ---
-CRAWL_ALL: ${CRAWL_ALL:-false}
-CRAWL_DATE: ${CRAWL_DATE:-}
-MAX_WORKERS: ${MAX_WORKERS:-4}
-CATEGORY_BLACKLIST: ${CATEGORY_BLACKLIST:-}
-CATEGORY_WHITELIST: ${CATEGORY_WHITELIST:-}
-OPTIONAL_KEYWORDS: ${OPTIONAL_KEYWORDS:-}
-TRANS_TO: ${TRANS_TO:-}
-PROXY: ${PROXY:-}
-STEP: ${STEP:-50}
-OPENAI_API_KEY: ${OPENAI_API_KEY:-[REDACTED]}
-OPENAI_BASE_URL: ${OPENAI_BASE_URL:-[REDACTED]}
-MODEL_NAME: ${MODEL_NAME:-[REDACTED]}
-------------------\n"
-        
-        # 检查今日文件是否已存在，如存在则删除 / Check if today's file exists, delete if found
-        if [ -f "data/${today}.jsonl" ]; then
-            echo "🗑️ 发现今日文件已存在，正在删除重新生成... / Found existing today's file, deleting for fresh start..."
+      - name: Crawl arXiv papers and generate AI-enhanced content
+        id: crawl_step
+        env:
+          # Get API config from GitHub Secrets
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
+          MODEL_NAME: ${{ secrets.MODEL_NAME || 'deepseek-chat' }}
+          
+          # Other configs from .env
+          CRAWL_ALL: ${{ env.CRAWL_ALL }}
+          CRAWL_DATE: ${{ env.CRAWL_DATE }}
+          MAX_WORKERS: ${{ env.MAX_WORKERS }}
+          CATEGORY_BLACKLIST: ${{ env.CATEGORY_BLACKLIST }}
+          CATEGORY_WHITELIST: ${{ env.CATEGORY_WHITELIST }}
+          OPTIONAL_KEYWORDS: ${{ env.OPTIONAL_KEYWORDS }}
+          TRANS_TO: ${{ env.TRANS_TO }}
+          PROXY: ${{ env.PROXY }}
+          STEP: ${{ env.STEP }}
+        run: |
+          today=$(date -u "+%Y-%m-%d")
+          echo "Starting to crawl $today arXiv papers..."
+          
+          # Check if today's file exists, delete if found
+          if [ -f "data/${today}.jsonl" ]; then
+            echo "🗑️ Found existing today's file, deleting for fresh start..."
             rm "data/${today}.jsonl"
-            echo "✅ 已删除现有文件：data/${today}.jsonl / Deleted existing file: data/${today}.jsonl"
-        else
-            echo "📝 今日文件不存在，准备新建... / Today's file doesn't exist, ready to create new one..."
-        fi
-        
-        # 使用run_crawler.py脚本，从.env文件读取所有配置
-        python run_crawler.py
-        
-        # 检查爬取是否成功 / Check if crawling was successful
-        if [ ! -f "data/${today}.jsonl" ]; then
-            echo "爬取失败，未生成数据文件 / Crawling failed, no data file generated"
-            exit 1
-        fi
-        
-        echo "crawl_date=$today" >> $GITHUB_OUTPUT
-        echo "爬取完成 / Crawling completed"
-        
-    - name: Update file list
-      run: |
-        echo "更新文件列表... / Updating file list..."
-        ls data/*.jsonl | sed 's|data/||' > assets/file-list.txt
-        echo "文件列表更新完成 / File list updated"
-
-    - name: Generate password hash and inject into config
-      run: |
-        echo "🔐 Generating password hash for authentication..."
-
-        # 从.env文件读取密码
-        if [ -f ".env" ]; then
-          PASSWORD=$(grep -E "^ACCESS_PASSWORD=" .env | cut -d'=' -f2 | sed 's/"//g')
-        else
-          PASSWORD=""
-        fi
-
-        if [ -z "$PASSWORD" ]; then
-          echo "⚠️  WARNING: ACCESS_PASSWORD not set in .env"
-          echo "⚠️  Password protection will be DISABLED"
-          echo "⚠️  To enable password protection, add ACCESS_PASSWORD in .env"
-          echo "ℹ️  Website will remain publicly accessible without authentication"
-
-          # Use a special value that will disable authentication
-          PASSWORD_HASH="DISABLED_NO_PASSWORD_SET_IN_ENV"
-        else
-          # Generate SHA-256 hash using openssl
-          PASSWORD_HASH=$(echo -n "$PASSWORD" | openssl dgst -sha256 -hex | awk '{print $2}')
-          echo "✅ Password hash generated successfully"
-          echo "✅ Hash length: ${#PASSWORD_HASH} characters"
-          echo "🔐 Password protection is ENABLED"
-        fi
-
-        # Inject hash into auth-config.js
-        if [ -f "js/auth-config.js" ]; then
-          sed -i "s/PLACEHOLDER_PASSWORD_HASH/$PASSWORD_HASH/" js/auth-config.js
-          echo "✅ Password hash injected into js/auth-config.js"
-        else
-          echo "❌ ERROR: js/auth-config.js not found!"
-          exit 1
-        fi
-
-        echo "🔐 Authentication setup complete"
-
-    - name: Summary
-      run: |
-        today=${{ steps.crawl_step.outputs.crawl_date }}
-        echo "✅ 工作流完成：成功爬取并处理 $today 的arXiv论文 / Workflow completed: Successfully crawled and processed $today arXiv papers"
-        
-    - name: Commit changes
-      run: |
-        # 从.env文件读取Git配置
-        if [ -f ".env" ]; then
-          EMAIL=$(grep -E "^EMAIL=" .env | cut -d'=' -f2 | sed 's/"//g')
-          NAME=$(grep -E "^NAME=" .env | cut -d'=' -f2 | sed 's/"//g')
-        else
-          EMAIL="github-actions[bot]@users.noreply.github.com"
-          NAME="github-actions[bot]"
-        fi
-        
-        git config --global user.email "$EMAIL"
-        git config --global user.name "$NAME"
-        git add .
-        # 检查是否有变更需要提交 / Check if there are changes to commit
-        if git diff --staged --quiet; then
-          echo "没有变更需要提交 / No changes to commit"
-          exit 0
-        fi
-        git commit -m "update: $(date -u '+%Y-%m-%d') arXiv papers"
-        echo "变更已提交 / Changes committed"
-        
-    - name: Pull latest changes and push
-      run: |
-        # 设置Git配置以处理自动合并 / Set Git config for automatic merging
-        git config pull.rebase true
-        git config rebase.autoStash true
-        
-        # 尝试推送，如果失败则拉取并重试 / Try to push, if failed then pull and retry
-        for i in {1..3}; do
-          echo "推送尝试 $i / Push attempt $i"
-          if git push origin main; then
-            echo "推送成功 / Push successful"
-            break
           else
-            echo "推送失败，拉取最新变更... / Push failed, pulling latest changes..."
-            git pull origin main --no-edit || true
-            if [ $i -eq 3 ]; then
-              echo "3次尝试后推送失败 / Failed to push after 3 attempts"
-              exit 1
-            fi
+            echo "📝 Today's file doesn't exist, ready to create new one..."
           fi
-        done
+          
+          # Run the python script
+          python run_crawler.py
+          
+          # Check if crawling was successful
+          if [ ! -f "data/${today}.jsonl" ]; then
+            echo "Crawling failed, no data file generated"
+            exit 1
+          fi
+          
+          echo "crawl_date=$today" >> $GITHUB_OUTPUT
+          echo "Crawling completed"
+        
+      - name: Update file list
+        run: |
+          echo "Updating file list..."
+          ls data/*.jsonl | sed 's|data/||' > assets/file-list.txt
+          echo "File list updated"
+
+      - name: Generate password hash and inject into config
+        run: |
+          echo "🔐 Generating password hash for authentication..."
+
+          if [ -f ".env" ]; then
+            PASSWORD=$(grep -E "^ACCESS_PASSWORD=" .env | cut -d'=' -f2 | sed 's/"//g')
+          else
+            PASSWORD=""
+          fi
+
+          if [ -z "$PASSWORD" ]; then
+            echo "⚠️ WARNING: ACCESS_PASSWORD not set in .env"
+            PASSWORD_HASH="DISABLED_NO_PASSWORD_SET_IN_ENV"
+          else
+            PASSWORD_HASH=$(echo -n "$PASSWORD" | openssl dgst -sha256 -hex | awk '{print $2}')
+            echo "🔐 Password protection is ENABLED"
+          fi
+
+          if [ -f "js/auth-config.js" ]; then
+            sed -i "s/PLACEHOLDER_PASSWORD_HASH/$PASSWORD_HASH/" js/auth-config.js
+            echo "✅ Password hash injected"
+          else
+            echo "❌ ERROR: js/auth-config.js not found!"
+            exit 1
+          fi
+
+      - name: Summary
+        run: |
+          today=${{ steps.crawl_step.outputs.crawl_date }}
+          echo "✅ Workflow completed for $today"
+        
+      - name: Commit changes
+        run: |
+          if [ -f ".env" ]; then
+            EMAIL=$(grep -E "^EMAIL=" .env | cut -d'=' -f2 | sed 's/"//g')
+            NAME=$(grep -E "^NAME=" .env | cut -d'=' -f2 | sed 's/"//g')
+          else
+            EMAIL="github-actions[bot]@users.noreply.github.com"
+            NAME="github-actions[bot]"
+          fi
+          
+          git config --global user.email "$EMAIL"
+          git config --global user.name "$NAME"
+          git add .
+          
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "update: $(date -u '+%Y-%m-%d') arXiv papers"
+        
+      - name: Pull latest changes and push
+        run: |
+          git config pull.rebase true
+          git config rebase.autoStash true
+          
+          for i in {1..3}; do
+            echo "Push attempt $i"
+            if git push origin main; then
+              echo "Push successful"
+              break
+            else
+              echo "Push failed, pulling latest changes..."
+              git pull origin main --no-edit || true
+              if [ $i -eq 3 ]; then
+                echo "Failed to push after 3 attempts"
+                exit 1
+              fi
+            fi
+          done
