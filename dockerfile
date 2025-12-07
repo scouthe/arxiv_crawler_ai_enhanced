@@ -1,19 +1,23 @@
-# 使用 Python 官方镜像作为基础
-FROM python:3.11-slim
+# 1. 【修改点】使用 DaoCloud 镜像源代替官方源 (绕过 Docker Hub 封锁)
+FROM docker.m.daocloud.io/python:3.11-slim
 
-# 设置工作目录
+# 2. 设置时区
+ENV TZ=Asia/Shanghai
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# 3. 设置工作目录
 WORKDIR /app
 
-# 复制依赖文件并安装
+# 4. 【修改点】配置 pip 为清华源 (加速依赖安装，否则下一步还会卡住)
+RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+
+# 5. 安装依赖
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 复制你的代码和爬虫子目录
-# 注意：需要确保 run_crawler.py, api_server.py, arxiv_crawler 都在当前目录或子目录
-COPY . /app
+# 6. 复制代码
+COPY . .
 
-# 暴露 FastAPI 端口
+# 7. 启动服务
 EXPOSE 8000
-
-# 定义启动命令
 CMD ["uvicorn", "api_server:app", "--host", "0.0.0.0", "--port", "8000"]
