@@ -1,4 +1,4 @@
-name: arXiv-daily-ai-enhanced
+name: arXiv-crawler-ai-enhanced
 
 on:
   schedule:
