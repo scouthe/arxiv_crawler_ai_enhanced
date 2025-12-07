@@ -14,3 +14,4 @@ test/*
 .idea/
 .cursorrules
 /arxiv_crawler/*
+auto_push.bat
