@@ -22,7 +22,7 @@ from .structure import Structure
 
 # 加载环境变量
 if os.path.exists('.env'):
-    dotenv.load_dotenv()
+    dotenv.load_dotenv(override=False)
 
 # 获取当前目录
 current_dir = os.path.dirname(os.path.abspath(__file__))

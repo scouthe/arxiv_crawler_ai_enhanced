@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 from arxiv_time import next_arxiv_update_day
 # 加载环境变量
 if os.path.exists('.env'):
-    load_dotenv()
+    load_dotenv(override=False)
 
 # 添加当前目录到Python路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))

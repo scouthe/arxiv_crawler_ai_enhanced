@@ -120,6 +120,101 @@ EMAIL=your-email@example.com         # GitHub提交邮箱，用于GitHub Actions
 NAME=your-github-username            # GitHub提交用户名，用于GitHub Actions自动部署
 ```
 
+### 本地运行时设置变量的方法
+
+#### 环境变量来源与优先级
+
+本地运行时，环境变量的来源和优先级如下：
+- **GitHub Actions中**：git secrets > .env文件
+- **本地开发时**：系统环境变量/终端临时设置 > .env文件
+
+这意味着如果在终端或系统中设置了环境变量，会优先使用这些值，否则使用`.env`文件中的值。
+
+#### 本地运行时设置变量的方法
+
+##### 1. 通过.env文件设置（推荐）
+
+这是最常用的方法，适合本地开发和测试：
+
+```bash
+# 复制示例文件
+cp .env.example .env
+
+# 使用文本编辑器编辑.env文件
+# Windows: notepad .env
+# Linux/Mac: nano .env 或 vim .env
+
+# 修改后保存文件，重新运行程序即可生效
+```
+
+##### 2. 通过终端临时设置
+
+适合临时测试不同配置：
+
+```bash
+# Windows PowerShell
+$env:OPENAI_API_KEY="your-actual-api-key"
+$env:OPENAI_BASE_URL="https://api.deepseek.com"
+$env:MODEL_NAME="deepseek-chat"
+python run_crawler.py
+
+# Linux/Mac
+OPENAI_API_KEY="your-actual-api-key" OPENAI_BASE_URL="https://api.deepseek.com" MODEL_NAME="deepseek-chat" python run_crawler.py
+
+# 或分多行设置
+export OPENAI_API_KEY="your-actual-api-key"
+export OPENAI_BASE_URL="https://api.deepseek.com"
+export MODEL_NAME="deepseek-chat"
+python run_crawler.py
+```
+
+##### 3. 通过系统环境变量设置
+
+适合长期使用，所有终端会话中都会生效：
+
+- **Windows**：设置 > 系统 > 关于 > 高级系统设置 > 环境变量
+- **Linux/Mac**：修改`~/.bashrc`或`~/.zshrc`文件，添加：
+  ```bash
+export OPENAI_API_KEY="your-actual-api-key"
+export OPENAI_BASE_URL="https://api.deepseek.com"
+export MODEL_NAME="deepseek-chat"
+  ```
+  然后运行`source ~/.bashrc`或`source ~/.zshrc`使设置生效
+
+#### 本地运行时测试环境变量
+
+你可以通过以下命令测试环境变量是否被正确读取：
+
+```bash
+# 查看环境变量配置
+python -c "
+import os
+from dotenv import load_dotenv
+if os.path.exists('.env'):
+    load_dotenv(override=False)
+print('OPENAI_API_KEY:', os.environ.get('OPENAI_API_KEY', '[NOT SET]'))
+print('OPENAI_BASE_URL:', os.environ.get('OPENAI_BASE_URL', '[NOT SET]'))
+print('MODEL_NAME:', os.environ.get('MODEL_NAME', '[NOT SET]'))
+"
+
+# 运行帮助命令，确认程序能正常加载
+python run_crawler.py --help
+```
+
+#### 本地运行示例
+
+```bash
+# 使用.env文件配置运行
+python run_crawler.py --date 2024-12-06
+
+# 使用终端临时设置运行（Windows PowerShell）
+$env:OPENAI_API_KEY="your-actual-api-key"
+python run_crawler.py --date 2024-12-06 --all
+
+# 使用终端临时设置运行（Linux/Mac）
+OPENAI_API_KEY="your-actual-api-key" python run_crawler.py --date 2024-12-06 --all
+```
+
 ## 🚀 运行爬虫
 
 ### 使用run_crawler.py脚本
@@ -276,22 +371,24 @@ live-server --port=8000
 1. **Fork仓库**：Fork本仓库到您自己的GitHub账户。
 
 2. **配置环境变量**：
-   - 直接修改仓库中的`.env`文件，配置所有必要参数：
-     - `OPENAI_API_KEY`：DeepSeek API密钥
-     - `OPENAI_BASE_URL`：DeepSeek API基础URL
-     - `MODEL_NAME`：使用的大模型名称（如"deepseek-chat"）
-     - `LANGUAGE`：生成内容的语言（如"Chinese"或"English"）
-     - `CATEGORY_WHITELIST`：要爬取的arxiv分类，使用逗号分隔（如"cs.CL, cs.CV"）
-     - 其他参数根据需要调整
-   - 所有参数均可在`.env`文件中直接配置，无需在GitHub仓库设置Secrets和Variables
+   - **本地开发**：直接修改仓库中的`.env`文件，配置所有必要参数
+   - **GitHub Actions部署**：需要在GitHub仓库中配置Secrets（推荐）
 
-3. **启用GitHub Pages**：
+3. **配置GitHub Secrets**：
+   - 进入您的仓库 → Settings → Secrets and variables → Actions
+   - 点击"New repository secret"，添加以下Secrets：
+     - `OPENAI_API_KEY`：DeepSeek API密钥
+     - `OPENAI_BASE_URL`：DeepSeek API基础URL（默认：https://api.deepseek.com）
+     - `MODEL_NAME`：使用的大模型名称（默认：deepseek-chat）
+   - 其他配置参数仍可在`.env`文件中直接修改
+
+4. **启用GitHub Pages**：
    - 进入您的仓库 → Settings → Pages
    - 在Build and deployment部分，设置Source为"Deploy from a branch"
    - 设置Branch为"main"，目录为"/(root)"
    - 点击Save
 
-4. **运行Workflow**：
+5. **运行Workflow**：
    - 进入您的仓库 → Actions
    - 选择"arxiv-daily-ai-enhanced" workflow
    - 点击"Run workflow"按钮，手动触发第一次运行

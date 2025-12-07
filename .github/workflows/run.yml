@@ -23,6 +23,22 @@ jobs:
         
     - name: Crawl arXiv papers and generate AI-enhanced content
       id: crawl_step
+      env:
+        # 从GitHub Secrets获取API配置
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
+        MODEL_NAME: ${{ secrets.MODEL_NAME || 'deepseek-chat' }}
+        
+        # 其他配置从.env文件读取
+        CRAWL_ALL: ${{ env.CRAWL_ALL }}
+        CRAWL_DATE: ${{ env.CRAWL_DATE }}
+        MAX_WORKERS: ${{ env.MAX_WORKERS }}
+        CATEGORY_BLACKLIST: ${{ env.CATEGORY_BLACKLIST }}
+        CATEGORY_WHITELIST: ${{ env.CATEGORY_WHITELIST }}
+        OPTIONAL_KEYWORDS: ${{ env.OPTIONAL_KEYWORDS }}
+        TRANS_TO: ${{ env.TRANS_TO }}
+        PROXY: ${{ env.PROXY }}
+        STEP: ${{ env.STEP }}
       run: |
         today=$(date -u "+%Y-%m-%d")
         echo "开始爬取 $today 的arXiv论文... / Starting to crawl $today arXiv papers..."
@@ -38,6 +54,9 @@ OPTIONAL_KEYWORDS: ${OPTIONAL_KEYWORDS:-}
 TRANS_TO: ${TRANS_TO:-}
 PROXY: ${PROXY:-}
 STEP: ${STEP:-50}
+OPENAI_API_KEY: ${OPENAI_API_KEY:-[REDACTED]}
+OPENAI_BASE_URL: ${OPENAI_BASE_URL:-[REDACTED]}
+MODEL_NAME: ${MODEL_NAME:-[REDACTED]}
 ------------------\n"
         
         # 检查今日文件是否已存在，如存在则删除 / Check if today's file exists, delete if found

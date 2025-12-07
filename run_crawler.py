@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 
 # 加载环境变量
 if os.path.exists('.env'):
-    load_dotenv()
+    load_dotenv(override=False)
 
 # 添加arxiv_crawler目录到Python路径
 sys.path.append(os.path.join(os.path.dirname(__file__), 'arxiv_crawler'))
