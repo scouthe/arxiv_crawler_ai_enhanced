@@ -20,26 +20,36 @@ jobs:
       - name: Crawl arXiv papers and generate AI-enhanced content
         id: crawl_step
         env:
-          # Get API config from GitHub Secrets
+          # --- API Configuration (from GitHub Secrets) ---
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
           MODEL_NAME: ${{ secrets.MODEL_NAME || 'deepseek-chat' }}
           
-          # 其他配置会在Python代码中从.env文件自动读取
+          # --- Crawler Configuration (from GitHub Variables) ---
+          # 必须显式映射，否则Python脚本无法读取GitHub设置的Variables
+          CRAWL_ALL: ${{ vars.CRAWL_ALL }}
+          CRAWL_DATE: ${{ vars.CRAWL_DATE }}
+          MAX_WORKERS: ${{ vars.MAX_WORKERS }}
+          CATEGORY_BLACKLIST: ${{ vars.CATEGORY_BLACKLIST }}
+          CATEGORY_WHITELIST: ${{ vars.CATEGORY_WHITELIST }}
+          OPTIONAL_KEYWORDS: ${{ vars.OPTIONAL_KEYWORDS }}
+          TRANS_TO: ${{ vars.TRANS_TO }}
+          PROXY: ${{ vars.PROXY }}
+          STEP: ${{ vars.STEP }}
         run: |
           today=$(date -u "+%Y-%m-%d")
-          echo "Starting to crawl $today arXiv papers..."
+          echo "🚀 Starting to crawl $today arXiv papers..."
           
-          # Print DeepSeek API configuration (hide sensitive info)
-          echo "\n--- DeepSeek API Configuration ---
-OPENAI_API_KEY: ${OPENAI_API_KEY:+[SET]}
-OPENAI_BASE_URL: ${OPENAI_BASE_URL:-[NOT SET]}
-MODEL_NAME: ${MODEL_NAME:-[NOT SET]}
----------------------------------\n"
+          # Print Configuration (Hide Sensitive Info)
+          echo -e "\n--- API Configuration ---"
+          echo "OPENAI_API_KEY: ${OPENAI_API_KEY:+[SET]}"
+          echo "OPENAI_BASE_URL: ${OPENAI_BASE_URL:-[NOT SET]}"
+          echo "MODEL_NAME: ${MODEL_NAME:-[NOT SET]}"
+          echo -e "-------------------------\n"
           
           # Check if today's file exists, delete if found
           if [ -f "data/${today}.jsonl" ]; then
-            echo "🗑️ Found existing today's file, deleting for fresh start..."
+            echo "🗑️  Found existing today's file, deleting for fresh start..."
             rm "data/${today}.jsonl"
           else
             echo "📝 Today's file doesn't exist, ready to create new one..."
@@ -50,12 +60,12 @@ MODEL_NAME: ${MODEL_NAME:-[NOT SET]}
           
           # Check if crawling was successful
           if [ ! -f "data/${today}.jsonl" ]; then
-            echo "Crawling failed, no data file generated"
+            echo "❌ Crawling failed, no data file generated"
             exit 1
           fi
           
           echo "crawl_date=$today" >> $GITHUB_OUTPUT
-          echo "Crawling completed"
+          echo "✅ Crawling completed"
         
       - name: Update file list
         run: |
@@ -67,14 +77,17 @@ MODEL_NAME: ${MODEL_NAME:-[NOT SET]}
         run: |
           echo "🔐 Generating password hash for authentication..."
 
+          # 尝试从 .env 文件读取密码（如果存在），否则尝试读取 Secrets
+          # 注意：通常不建议将包含密码的 .env 提交到仓库
           if [ -f ".env" ]; then
             PASSWORD=$(grep -E "^ACCESS_PASSWORD=" .env | cut -d'=' -f2 | sed 's/"//g')
           else
-            PASSWORD=""
+            # 如果 .env 不存在，尝试从 GitHub Secrets 读取
+            PASSWORD="${{ secrets.ACCESS_PASSWORD }}"
           fi
 
           if [ -z "$PASSWORD" ]; then
-            echo "⚠️ WARNING: ACCESS_PASSWORD not set in .env"
+            echo "⚠️  WARNING: ACCESS_PASSWORD not set (checked .env and Secrets)"
             PASSWORD_HASH="DISABLED_NO_PASSWORD_SET_IN_ENV"
           else
             PASSWORD_HASH=$(echo -n "$PASSWORD" | openssl dgst -sha256 -hex | awk '{print $2}')
@@ -96,22 +109,17 @@ MODEL_NAME: ${MODEL_NAME:-[NOT SET]}
         
       - name: Commit changes
         run: |
-          if [ -f ".env" ]; then
-            EMAIL=$(grep -E "^EMAIL=" .env | cut -d'=' -f2 | sed 's/"//g')
-            NAME=$(grep -E "^NAME=" .env | cut -d'=' -f2 | sed 's/"//g')
-          else
-            EMAIL="github-actions[bot]@users.noreply.github.com"
-            NAME="github-actions[bot]"
-          fi
+          # 配置 Git 用户信息
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
           
-          git config --global user.email "$EMAIL"
-          git config --global user.name "$NAME"
           git add .
           
           if git diff --staged --quiet; then
             echo "No changes to commit"
             exit 0
           fi
+          
           git commit -m "update: $(date -u '+%Y-%m-%d') arXiv papers"
         
       - name: Pull latest changes and push
@@ -122,13 +130,13 @@ MODEL_NAME: ${MODEL_NAME:-[NOT SET]}
           for i in {1..3}; do
             echo "Push attempt $i"
             if git push origin main; then
-              echo "Push successful"
+              echo "✅ Push successful"
               break
             else
-              echo "Push failed, pulling latest changes..."
+              echo "⚠️ Push failed, pulling latest changes..."
               git pull origin main --no-edit || true
               if [ $i -eq 3 ]; then
-                echo "Failed to push after 3 attempts"
+                echo "❌ Failed to push after 3 attempts"
                 exit 1
               fi
             fi
