@@ -8,6 +8,10 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 # 3. 设置工作目录
 WORKDIR /app
 
+RUN apt-get update && \
+    apt-get install -y git && \
+    rm -rf /var/lib/apt/lists/*
+    
 # 4. 【修改点】配置 pip 为清华源 (加速依赖安装，否则下一步还会卡住)
 RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
 
