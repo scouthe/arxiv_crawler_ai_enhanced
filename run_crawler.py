@@ -144,6 +144,7 @@ def update_file_list(date_str):
     """
     # 定义文件路径
     file_list_path = Path("./assets/file-list.txt")
+    data_dir = Path("./data")
     
     # 确保assets目录存在
     file_list_path.parent.mkdir(exist_ok=True)
@@ -162,12 +163,19 @@ def update_file_list(date_str):
     
     # 添加标准JSONL文件
     standard_jsonl = f"{date_str}.jsonl"
-    new_files.append(standard_jsonl)
+    if (data_dir / standard_jsonl).exists():
+        new_files.append(standard_jsonl)
     
-    # 添加AI增强的JSONL文件（英文和中文）
-    for lang in ["English", "Chinese"]:
-        ai_enhanced_jsonl = f"{date_str}_AI_enhanced_{lang}.jsonl"
-        new_files.append(ai_enhanced_jsonl)
+    # 检查并添加实际存在的AI增强JSONL文件
+    # 先检查中文版本（默认生成的）
+    chinese_ai_jsonl = f"{date_str}_AI_enhanced_Chinese.jsonl"
+    if (data_dir / chinese_ai_jsonl).exists():
+        new_files.append(chinese_ai_jsonl)
+    
+    # 再检查英文版本（如果有生成的话）
+    english_ai_jsonl = f"{date_str}_AI_enhanced_English.jsonl"
+    if (data_dir / english_ai_jsonl).exists():
+        new_files.append(english_ai_jsonl)
     
     # 将新文件添加到现有集合中
     existing_files.update(new_files)
