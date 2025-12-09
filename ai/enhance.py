@@ -10,7 +10,8 @@ import requests
 import dotenv
 import argparse
 from tqdm import tqdm
-
+from langchain_core.output_parsers import PydanticOutputParser
+from langchain_core.messages import SystemMessage
 import langchain_core.exceptions
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import (
@@ -24,12 +25,27 @@ from .structure import Structure
 if os.path.exists('.env'):
     dotenv.load_dotenv(override=False)
 
+
+
 # 获取当前目录
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
 # 读取模板文件
 template = open(os.path.join(current_dir, "template.txt"), "r").read()
 system = open(os.path.join(current_dir, "system.txt"), "r").read()
+
+def _extract_json(text: str) -> dict:
+    text = text.strip()
+    # 兼容 ```json ... ```
+    m = re.search(r"```json\s*(\{.*?\})\s*```", text, flags=re.S)
+    if m:
+        text = m.group(1)
+    # 兼容夹杂文本
+    if not text.startswith("{"):
+        m = re.search(r"(\{.*\})", text, flags=re.S)
+        if m:
+            text = m.group(1)
+    return json.loads(text)
 
 def is_sensitive(content: str) -> bool:
     """
@@ -54,7 +70,7 @@ def is_sensitive(content: str) -> bool:
         print(f"Sensitive check error: {e}", file=sys.stderr)
         return True
 
-def process_single_item(chain, item: Dict, language: str) -> Dict:
+def process_single_item(chain, item: Dict, language: str,provider) -> Dict:
     """
     处理单个数据项，使用大模型生成AI增强内容
     
@@ -86,7 +102,16 @@ def process_single_item(chain, item: Dict, language: str) -> Dict:
             "title": item['title'],
             "abstract": item['summary']
         })
-        item['AI'] = response.model_dump()
+        if isinstance(response, Structure):
+            item["AI"] = response.model_dump()
+            return item
+
+        # 走到这里说明本地 parser response 是 AIMessage/str
+        response_text = response.content if isinstance(response, AIMessage) else str(response)
+        data = _extract_json(response_text)
+
+        obj = Structure.model_validate({**default_ai_fields, **data})
+        item["AI"] = obj.model_dump()
     except langchain_core.exceptions.OutputParserException as e:
         # 尝试从错误信息中提取 JSON 字符串并修复
         error_msg = str(e)
@@ -145,7 +170,7 @@ def process_all_items(data: List[Dict], model_name: str = "deepseek-chat", langu
         base_url = os.environ.get("OPENAI_BASE_URL", "https://api.deepseek.com")
         # model_name 继续用 env/参数传入的官方模型名，比如 gpt-4o-mini
     elif provider == "local":
-        api_key  = os.environ.get("OPENAI_BASE_URL", "lm-studio")  # LM Studio 一般不校验，给个占位
+        api_key  = os.environ.get("OPENAI_API_KEY", "lm-studio")  # LM Studio 一般不校验，给个占位
         base_url = os.environ.get("OPENAI_BASE_URL")  # 例如 http://127.0.0.1:1234/v1
         # model_name 用你本地模型的名字，比如 "qwen2.5-32b-instruct"
     else:
@@ -158,26 +183,40 @@ def process_all_items(data: List[Dict], model_name: str = "deepseek-chat", langu
     )
     print('Connect to:',base_url,":", model_name, file=sys.stderr)
 
-    if provider == "official":
-        # 官方模型支持结构化输出和函数调用
-        llm = llm_base.with_structured_output(Structure, method="function_calling")
-    else:
-        # 本地模型不支持结构化输出，使用基础模型
-        llm = llm_base
-
     prompt_template = ChatPromptTemplate.from_messages([
         SystemMessagePromptTemplate.from_template(system),
         HumanMessagePromptTemplate.from_template(template=template)
     ])
 
-    chain = prompt_template | llm
+
+    parser = PydanticOutputParser(pydantic_object=Structure)
+    if provider == "official":
+        # 官方模型支持结构化输出和函数调用
+        llm = llm_base.with_structured_output(Structure, method="function_calling")
+        chain = prompt_template | llm
+    else:
+        fmt = parser.get_format_instructions()
+        fmt_escaped = fmt.replace("{", "{{").replace("}", "}}")
+
+        system_with_format = system + "\n\n" + fmt_escaped
+
+        # ✅ system 用纯 SystemMessage，不走模板解析
+        prompt_template_local = ChatPromptTemplate.from_messages([
+            SystemMessage(content=system_with_format),
+            HumanMessagePromptTemplate.from_template(template=template),
+        ])
+
+        chain = prompt_template_local | llm_base | parser
+
+
+
     
     # 使用线程池并行处理
     processed_data = [None] * len(data)  # 预分配结果列表
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         # 提交所有任务
         future_to_idx = {
-            executor.submit(process_single_item, chain, item, language): idx
+            executor.submit(process_single_item, chain, item, language,provider): idx
             for idx, item in enumerate(data)
         }
         

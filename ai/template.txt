@@ -6,4 +6,14 @@ Paper Title:
 Paper Abstract:
 {abstract}
 
-Please provide:
+Please return a JSON object with the following fields:
+- tldr: describe the main task of this paper
+- motivation: describe the motivation in this paper
+- method: method of this paper
+- result: result of this paper
+- conclusion: conclusion of this paper
+
+Remember:
+1 Output ONLY JSON.
+2 No markdown, no ```json```, no extra text.
+3 Use {language}.
