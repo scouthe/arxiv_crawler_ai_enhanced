@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>环境变量管理 - Arxiv Crawler</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 900px;
+            margin-top: 30px;
+        }
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .card-header {
+            background-color: #007bff;
+            color: white;
+            border-radius: 10px 10px 0 0 !important;
+        }
+        .env-var-item {
+            margin-bottom: 15px;
+            padding: 15px;
+            background-color: white;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        .env-var-item:hover {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transform: translateY(-1px);
+        }
+        .env-var-name {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 8px;
+        }
+        .env-var-description {
+            font-size: 0.85rem;
+            color: #6c757d;
+            margin-bottom: 10px;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+            border-color: #0056b3;
+        }
+        .message {
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: 8px;
+            display: none;
+        }
+        .message.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .spinner {
+            display: none;
+            margin-left: 10px;
+        }
+        .section-title {
+            color: #495057;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+        .alert {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="card-header text-center">
+                <h1 class="card-title mb-0">
+                    <i class="fa fa-cogs" aria-hidden="true"></i> 环境变量管理
+                </h1>
+            </div>
+            <div class="card-body">
+                <!-- 操作消息 -->
+                <div id="message" class="message"></div>
+                
+                <!-- 环境变量列表 -->
+                <div class="mb-4">
+                    <h2 class="section-title">
+                        <i class="fa fa-list" aria-hidden="true"></i> 当前环境变量
+                    </h2>
+                    <div id="envVarsList"></div>
+                </div>
+                
+                <!-- 保存按钮 -->
+                <div class="text-center">
+                    <button id="saveBtn" class="btn btn-primary btn-lg">
+                        <i class="fa fa-save" aria-hidden="true"></i> 保存环境变量
+                        <span id="spinner" class="spinner">
+                            <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // 环境变量描述映射
+        const envVarDescriptions = {
+            'OPENAI_API_KEY': 'DeepSeek API密钥',
+            'OPENAI_BASE_URL': 'DeepSeek API基础URL',
+            'MODEL_NAME': '默认模型名称',
+            'LANGUAGE': '默认语言',
+            'MAX_WORKERS': 'AI增强的最大并行数',
+            'CRAWL_ALL': '爬取模式：true表示全量更新，false表示增量更新',
+            'CRAWL_DATE': '指定爬取日期，格式为YYYY-MM-DD，留空表示今天',
+            'CATEGORY_WHITELIST': '论文分类白名单，使用逗号分隔',
+            'CATEGORY_BLACKLIST': '论文分类黑名单，使用逗号分隔',
+            'OPTIONAL_KEYWORDS': '可选关键词，使用逗号分隔',
+            'TRANS_TO': '翻译目标语言，留空表示不翻译',
+            'PROXY': '代理设置，格式为http://127.0.0.1:7890，留空表示不使用代理',
+            'TRANSLATION_SEMAPHORE': '翻译并发限制',
+            'STEP': '每页爬取数量',
+            'ACCESS_PASSWORD': '页面访问密码，留空表示不使用密码保护',
+            'EMAIL': 'GitHub提交邮箱',
+            'NAME': 'GitHub提交用户名',
+            'GIT_TOKEN': 'Git仓库访问令牌',
+            'GIT_USERNAME': 'Git用户名',
+            'GIT_REPO_URL': 'Git仓库URL'
+        };
+
+        // 存储原始环境变量值，用于比较变化
+        let originalEnvVars = {};
+
+        // 页面加载时获取环境变量
+        document.addEventListener('DOMContentLoaded', function() {
+            fetchEnvVars();
+        });
+
+        // 获取环境变量
+        async function fetchEnvVars() {
+            try {
+                const response = await fetch('/env-vars');
+                if (!response.ok) {
+                    throw new Error('获取环境变量失败');
+                }
+                const data = await response.json();
+                originalEnvVars = { ...data.env_vars };
+                renderEnvVars(data.env_vars);
+            } catch (error) {
+                showMessage('错误：' + error.message, 'error');
+            }
+        }
+
+        // 渲染环境变量列表
+        function renderEnvVars(envVars) {
+            const envVarsList = document.getElementById('envVarsList');
+            envVarsList.innerHTML = '';
+
+            // 如果没有环境变量，显示提示
+            if (Object.keys(envVars).length === 0) {
+                envVarsList.innerHTML = `
+                    <div class="alert alert-info text-center">
+                        <i class="fa fa-info-circle" aria-hidden="true"></i> 暂无环境变量，请添加环境变量
+                    </div>
+                `;
+                return;
+            }
+
+            // 按字母顺序排序环境变量
+            const sortedKeys = Object.keys(envVars).sort();
+
+            // 渲染每个环境变量
+            sortedKeys.forEach(key => {
+                const value = envVars[key];
+                const description = envVarDescriptions[key] || '无描述';
+                
+                const envVarItem = document.createElement('div');
+                envVarItem.className = 'env-var-item';
+                envVarItem.innerHTML = `
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="env-var-name">${key}</div>
+                            <div class="env-var-description">${description}</div>
+                        </div>
+                        <div class="col-md-9">
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="env_${key}" 
+                                   name="${key}" 
+                                   value="${escapeHtml(value)}" 
+                                   placeholder="输入${key}的值">
+                        </div>
+                    </div>
+                `;
+                envVarsList.appendChild(envVarItem);
+            });
+        }
+
+        // 比较环境变量变化
+        function getChangedEnvVars() {
+            const currentEnvVars = {};
+            const inputs = document.querySelectorAll('#envVarsList input');
+            inputs.forEach(input => {
+                const key = input.name;
+                const value = input.value;
+                currentEnvVars[key] = value;
+            });
+
+            const changedVars = {};
+            for (const [key, value] of Object.entries(currentEnvVars)) {
+                if (originalEnvVars[key] !== value) {
+                    changedVars[key] = {
+                        oldValue: originalEnvVars[key] || '',
+                        newValue: value
+                    };
+                }
+            }
+
+            return changedVars;
+        }
+
+        // 显示弹窗消息
+        function showAlert(title, message, type = 'success') {
+            // 创建模态框HTML
+            const modalHtml = `
+                <div class="modal fade" id="alertModal" tabindex="-1" aria-labelledby="alertModalLabel" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header bg-${type}">
+                                <h5 class="modal-title text-white" id="alertModalLabel">${title}</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                ${message}
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-${type}" data-bs-dismiss="modal">确定</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // 移除旧的模态框
+            const existingModal = document.getElementById('alertModal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+
+            // 添加新的模态框
+            const modalContainer = document.createElement('div');
+            modalContainer.innerHTML = modalHtml;
+            document.body.appendChild(modalContainer);
+
+            // 显示模态框
+            const modal = new bootstrap.Modal(document.getElementById('alertModal'));
+            modal.show();
+        }
+
+        // 保存环境变量
+        document.getElementById('saveBtn').addEventListener('click', async function() {
+            // 比较环境变量变化
+            const changedVars = getChangedEnvVars();
+            
+            // 如果没有变化，显示提示
+            if (Object.keys(changedVars).length === 0) {
+                showAlert('提示', '没有检测到环境变量变化', 'info');
+                return;
+            }
+
+            // 显示加载状态
+            const saveBtn = document.getElementById('saveBtn');
+            const spinner = document.getElementById('spinner');
+            saveBtn.disabled = true;
+            spinner.style.display = 'inline';
+
+            try {
+                // 收集所有环境变量
+                const envVars = {};
+                const inputs = document.querySelectorAll('#envVarsList input');
+                inputs.forEach(input => {
+                    const key = input.name;
+                    const value = input.value;
+                    envVars[key] = value;
+                });
+
+                // 发送请求更新环境变量
+                const response = await fetch('/env-vars', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ env_vars: envVars })
+                });
+
+                if (!response.ok) {
+                    throw new Error('更新环境变量失败');
+                }
+
+                const data = await response.json();
+                
+                // 更新原始环境变量值
+                originalEnvVars = { ...envVars };
+                
+                // 构建变更详情HTML
+                let changesHtml = '<h5>变更详情：</h5><ul>';
+                for (const [key, change] of Object.entries(changedVars)) {
+                    const description = envVarDescriptions[key] || key;
+                    changesHtml += `<li><strong>${description} (${key})</strong>: <br>
+                        <span class="text-muted">旧值：</span>${escapeHtml(change.oldValue)}<br>
+                        <span class="text-success">新值：</span>${escapeHtml(change.newValue)}</li>`;
+                }
+                changesHtml += '</ul>';
+                
+                // 显示成功弹窗
+                showAlert('保存成功', `${data.message}<br><br>${changesHtml}`);
+            } catch (error) {
+                // 显示错误弹窗
+                showAlert('保存失败', `错误：${error.message}`, 'danger');
+            } finally {
+                // 隐藏加载状态
+                saveBtn.disabled = false;
+                spinner.style.display = 'none';
+            }
+        });
+
+        // 显示顶部消息
+        function showMessage(message, type) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.textContent = message;
+            messageDiv.className = `message ${type}`;
+            messageDiv.style.display = 'block';
+
+            // 3秒后自动隐藏消息
+            setTimeout(() => {
+                messageDiv.style.display = 'none';
+            }, 3000);
+        }
+
+        // HTML转义函数，防止XSS攻击
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

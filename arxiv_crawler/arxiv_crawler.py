@@ -511,7 +511,7 @@ class ArxivScraper(object):
         """
         self.paper_exporter.to_jsonl(output_dir, filename_format)
     
-    def to_ai_enhanced_jsonl(self, output_dir="./data", filename_format="%Y-%m-%d", model_name="deepseek-chat", language="Chinese", max_workers=1):
+    def to_ai_enhanced_jsonl(self, output_dir="./data", filename_format="%Y-%m-%d", model_name="deepseek-chat", language="Chinese", max_workers=1, provider="official"):
         """
         导出AI增强的论文数据为JSONL格式，使用大模型生成摘要、动机、方法、结果等
         
@@ -521,9 +521,10 @@ class ArxivScraper(object):
             model_name (str, optional): 大模型名称. Defaults to "deepseek-chat".
             language (str, optional): 生成语言. Defaults to "Chinese".
             max_workers (int, optional): 最大并行数. Defaults to 1.
+            provider (str, optional): 模型提供商，"official"或"local". Defaults to "official".
         """
         # 获取AI增强内容映射
-        ai_content_map = self.paper_exporter.to_ai_enhanced_jsonl(output_dir, filename_format, model_name, language, max_workers)
+        ai_content_map = self.paper_exporter.to_ai_enhanced_jsonl(output_dir, filename_format, model_name, language, max_workers, provider)
         
         # 更新self.papers列表中的Paper对象的ai_content属性
         for paper in self.papers:

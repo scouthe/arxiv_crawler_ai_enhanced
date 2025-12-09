@@ -313,6 +313,110 @@ live-server --port=8000
 3. 使用页面顶部的搜索框和筛选器查找感兴趣的论文
 4. 本地服务仅在您的计算机上可用，不会被外部访问
 
+## 🌐 API服务器与环境变量管理
+
+### 运行API服务器
+
+本项目提供了一个功能强大的API服务器，用于管理环境变量和控制爬虫运行。
+
+```bash
+# 在项目根目录运行
+python api_server.py
+```
+
+服务器将在端口8000上运行，您可以通过以下方式访问：
+- API文档：`http://localhost:8000/docs`（FastAPI自动生成的Swagger文档）
+- 环境变量管理界面：`http://localhost:8000/env-manager`
+
+### 环境变量管理Web界面
+
+环境变量管理Web界面提供了一个直观的方式来查看和修改环境变量，无需手动编辑`.env`文件。
+
+#### 功能特性
+
+- **直观的界面设计**：采用现代化的响应式设计，支持各种设备
+- **实时更新**：修改环境变量后立即生效，无需重启服务器
+- **详细的变量描述**：每个环境变量都有清晰的描述，方便理解其用途
+- **按字母排序**：环境变量按字母顺序排列，便于查找
+- **批量修改支持**：可以一次性修改多个环境变量
+- **自动保存**：修改后自动保存到`.env`文件，确保配置持久化
+
+#### 使用方法
+
+1. 启动API服务器
+2. 在浏览器中访问 `http://localhost:8000/env-manager`
+3. 查看当前环境变量值
+4. 点击任意环境变量的值进行编辑
+5. 修改完成后，点击"保存环境变量"按钮
+6. 系统会显示成功消息，并将修改保存到`.env`文件
+
+### API端点详细说明
+
+API服务器提供了以下端点，用于管理环境变量和控制爬虫运行：
+
+| 端点 | 方法 | 描述 | 请求体 | 响应 |
+|------|------|------|--------|------|
+| `/` | GET | 健康检查 | 无 | `{"status": "online", "system": "Docker Container"}` |
+| `/env-vars` | GET | 获取所有环境变量 | 无 | `{"env_vars": {"VAR1": "value1", "VAR2": "value2"}}` |
+| `/env-vars/example` | GET | 获取环境变量示例 | 无 | `{"example_env_vars": {"VAR1": "example_value1"}}` |
+| `/env-vars` | PUT | 批量更新环境变量 | `{"env_vars": {"VAR1": "new_value1", "VAR2": "new_value2"}}` | `{"status": "success", "message": "成功更新 2 个环境变量", "updated_vars": ["VAR1", "VAR2"]}` |
+| `/env-vars/{var_name}` | PUT | 更新单个环境变量 | `{"value": "new_value"}` | `{"status": "success", "message": "成功更新环境变量 VAR1", "updated_var": "VAR1", "value": "new_value"}` |
+| `/run-crawler` | POST | 触发完整流程：爬取 + AI增强 | `{"all_mode": false, "date_set": "2025-12-05"}` | `{"status": "success", "message": "完整流程完成: 2025-12-05", "generated_files_path": "/app/data"}` |
+| `/crawl-only` | POST | 仅触发爬取，不进行AI增强 | `{"all_mode": false, "date_set": "2025-12-05"}` | `{"status": "success", "message": "仅爬取完成: 2025-12-05", "generated_files_path": "/app/data"}` |
+| `/ai-enhance-only` | POST | 仅触发AI增强，对已有的爬取结果 | `{"all_mode": false, "date_set": "2025-12-05"}` | `{"status": "success", "message": "仅AI增强完成: 2025-12-05", "generated_files_path": "/app/data"}` |
+| `/run-git-sync` | POST | 触发Git同步 | 无 | `{"status": "success", "message": "Git Push 成功！"}` |
+| `/env-manager` | GET | 访问环境变量管理Web界面 | 无 | HTML页面 |
+
+#### 使用示例
+
+1. **获取所有环境变量**
+   ```bash
+   curl http://localhost:8000/env-vars
+   ```
+
+2. **更新单个环境变量**
+   ```bash
+   curl -X PUT -H "Content-Type: application/json" -d '{"value": "10"}' http://localhost:8000/env-vars/MAX_WORKERS
+   ```
+
+3. **批量更新环境变量**
+   ```bash
+   curl -X PUT -H "Content-Type: application/json" -d '{"env_vars": {"MAX_WORKERS": "10", "LANGUAGE": "Chinese"}}' http://localhost:8000/env-vars
+   ```
+
+4. **触发爬虫运行**
+   ```bash
+   curl -X POST -H "Content-Type: application/json" -d '{"all_mode": false, "date_set": "2025-12-05"}' http://localhost:8000/run-crawler
+   ```
+
+### API服务器使用场景
+
+#### 场景1：自动化管理
+
+通过API服务器，可以实现自动化管理爬虫和环境变量：
+
+1. 编写脚本定期调用API触发爬虫运行
+2. 根据需要动态调整环境变量
+3. 集成到其他系统中，实现更复杂的自动化流程
+
+#### 场景2：远程管理
+
+在Docker容器中运行API服务器，可以通过网络远程管理环境变量和控制爬虫：
+
+1. 在Docker中启动API服务器
+2. 映射容器端口到主机
+3. 通过网络访问API端点或Web界面
+4. 远程管理爬虫配置和运行
+
+#### 场景3：多用户协作
+
+多个用户可以通过API服务器共享同一套环境配置：
+
+1. 启动API服务器并配置访问权限
+2. 团队成员通过Web界面或API访问
+3. 所有修改都会立即生效，确保配置一致性
+4. 便于团队协作和配置管理
+
 ## 🛠️ 调试与故障排除
 
 ### 常见问题与解决方案

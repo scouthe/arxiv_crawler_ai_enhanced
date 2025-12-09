@@ -581,17 +581,22 @@ class PaperExporter:
 
             with open(output_dir / f"{current_filename}.jsonl", "w", encoding="utf-8") as file:
                 papers = self.db.fetch_papers_on_date(current)
-                for paper in papers:
+                # 应用过滤逻辑，只导出符合白名单条件的论文
+                chosen_records, filtered_records = self.filter_papers(papers)
+                # 只使用符合白名单条件的论文
+                chosen_papers = [record.paper for record in chosen_records]
+                
+                for paper in chosen_papers:
                     # 使用Paper对象的to_jsonl_dict方法直接生成JSON数据
                     json_data = paper.to_jsonl_dict()
                     # 写入JSONL格式
                     file.write(json.dumps(json_data, ensure_ascii=False) + "\n")
 
                 self.console.log(
-                    f"[bold green]Output {current_filename}.jsonl completed. {len(papers)} papers exported"
+                    f"[bold green]Output {current_filename}.jsonl completed. {len(chosen_papers)} papers exported"
                 )
     
-    def to_ai_enhanced_jsonl(self, output_dir="./data", filename_format="%Y-%m-%d", model_name="deepseek-chat", language="Chinese", max_workers=4):
+    def to_ai_enhanced_jsonl(self, output_dir="./data", filename_format="%Y-%m-%d", model_name="deepseek-chat", language="Chinese", max_workers=4, provider=None):
         """
         导出AI增强的论文数据为JSONL格式
         
@@ -613,11 +618,16 @@ class PaperExporter:
             current = self.date_from + timedelta(days=i)
             current_filename = current.strftime(filename_format)
             
-            # 先导出原始JSONL数据
+            # 先导出原始JSONL数据（应用过滤逻辑）
             temp_file = output_dir / f"{current_filename}.jsonl"
             with open(temp_file, "w", encoding="utf-8") as file:
                 papers = self.db.fetch_papers_on_date(current)
-                for paper in papers:
+                # 应用过滤逻辑，只导出符合白名单条件的论文
+                chosen_records, filtered_records = self.filter_papers(papers)
+                # 只使用符合白名单条件的论文
+                chosen_papers = [record.paper for record in chosen_records]
+                
+                for paper in chosen_papers:
                     json_data = paper.to_jsonl_dict()
                     file.write(json.dumps(json_data, ensure_ascii=False) + "\n")
             
@@ -628,7 +638,7 @@ class PaperExporter:
                 data = [json.loads(line) for line in f]
             
             # 增强数据
-            enhanced_data = enhance_jsonl_data(data, model_name, language, max_workers)
+            enhanced_data = enhance_jsonl_data(data, model_name, language, max_workers, provider)
             
             # 保存结果
             with open(target_file, "w", encoding="utf-8") as f:

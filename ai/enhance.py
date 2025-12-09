@@ -122,7 +122,7 @@ def process_single_item(chain, item: Dict, language: str) -> Dict:
     #         return None
     return item
 
-def process_all_items(data: List[Dict], model_name: str = "deepseek-chat", language: str = "Chinese", max_workers: int = 4) -> List[Dict]:
+def process_all_items(data: List[Dict], model_name: str = "deepseek-chat", language: str = "Chinese", max_workers: int = 4, provider: str = "official") -> List[Dict]:
     """
     并行处理所有数据项，使用大模型生成AI增强内容
     
@@ -131,22 +131,40 @@ def process_all_items(data: List[Dict], model_name: str = "deepseek-chat", langu
         model_name (str, optional): 大模型名称. Defaults to "deepseek-chat".
         language (str, optional): 生成语言. Defaults to "Chinese".
         max_workers (int, optional): 最大并行数. Defaults to 1.
-        
+        provider:
+        - "official": 用官方 OpenAI
+        - "local"   : 用你自建/LmStudio
+   
     Returns:
         List[Dict]: 带有AI增强内容的论文数据列表
     """
     # 从环境变量获取API配置
-    api_key = os.environ.get("OPENAI_API_KEY")
-    base_url = os.environ.get("OPENAI_BASE_URL")
-    
+
+    if provider == "official":
+        api_key  = os.environ.get("OPENAI_API_KEY")
+        base_url = os.environ.get("OPENAI_BASE_URL", "https://api.deepseek.com")
+        # model_name 继续用 env/参数传入的官方模型名，比如 gpt-4o-mini
+    elif provider == "local":
+        api_key  = os.environ.get("OPENAI_BASE_URL", "lm-studio")  # LM Studio 一般不校验，给个占位
+        base_url = os.environ.get("OPENAI_BASE_URL")  # 例如 http://127.0.0.1:1234/v1
+        # model_name 用你本地模型的名字，比如 "qwen2.5-32b-instruct"
+    else:
+        raise ValueError(f"Unknown provider: {provider}")
     # 创建ChatOpenAI实例，传递API密钥和基础URL
-    llm = ChatOpenAI(
+    llm_base = ChatOpenAI(
         model=model_name,
         api_key=api_key,
         base_url=base_url
-    ).with_structured_output(Structure, method="function_calling")
-    print('Connect to:', model_name, file=sys.stderr)
-    
+    )
+    print('Connect to:',base_url,":", model_name, file=sys.stderr)
+
+    if provider == "official":
+        # 官方模型支持结构化输出和函数调用
+        llm = llm_base.with_structured_output(Structure, method="function_calling")
+    else:
+        # 本地模型不支持结构化输出，使用基础模型
+        llm = llm_base
+
     prompt_template = ChatPromptTemplate.from_messages([
         SystemMessagePromptTemplate.from_template(system),
         HumanMessagePromptTemplate.from_template(template=template)
@@ -187,7 +205,9 @@ def process_all_items(data: List[Dict], model_name: str = "deepseek-chat", langu
     
     return processed_data
 
-def enhance_jsonl_data(jsonl_data: List[Dict], model_name: str = "deepseek-chat", language: str = "Chinese", max_workers: int = 4) -> List[Dict]:
+def enhance_jsonl_data(jsonl_data: List[Dict], model_name: str = "deepseek-chat",
+                         language: str = "Chinese", max_workers: int = 4, 
+                         provider="official") -> List[Dict]:
     """
     增强JSONL数据，添加AI生成的内容
     
@@ -196,10 +216,12 @@ def enhance_jsonl_data(jsonl_data: List[Dict], model_name: str = "deepseek-chat"
         model_name (str, optional): 大模型名称. Defaults to "deepseek-chat".
         language (str, optional): 生成语言. Defaults to "Chinese".
         max_workers (int, optional): 最大并行数. Defaults to 1.
+        provider (str, optional): 模型提供商，"official"或"local". Defaults to "official".
         
     Returns:
         List[Dict]: 增强后的论文数据列表
     """
+
     # 去重
     seen_ids = set()
     unique_data = []
@@ -213,7 +235,8 @@ def enhance_jsonl_data(jsonl_data: List[Dict], model_name: str = "deepseek-chat"
         unique_data,
         model_name,
         language,
-        max_workers
+        max_workers,
+        provider
     )
     
     # 过滤掉None值

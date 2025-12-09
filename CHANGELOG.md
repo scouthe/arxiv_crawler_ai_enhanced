@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- 新增 FastAPI 后端服务，支持环境变量在线管理
+- 新增 `env_manager.html` 前端页面，用于可视化管理环境变量
+- 在 API 服务器中添加 `/env-vars` 和 `/env-manager` 端点
+- 更新 README.md，详细记录 Web 界面和 API 端点
+
+### Changed
+- 更新 `requirements.txt`，添加精确版本号和缺失的 Web 服务依赖
+- 优化 `run_crawler.py` 中的 `update_file_list` 函数
+
+### Fixed
+- 修复 `file-list.txt` 中不必要添加 English.json 的问题
+
 ## [1.1.0] - 2025-12-06
 
 ### Added
