@@ -211,6 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initEventListeners();
   
   fetchGitHubStats();
+  fetchVisitCount();
   
   // 加载用户关键词
   loadUserKeywords();
@@ -225,9 +226,37 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
+async function fetchVisitCount() {
+  try {
+    // 使用CountAPI服务来统计访问量
+    const countApiUrl = 'https://api.countapi.xyz';
+    const namespace = 'arxiv-crawler-ai-enhanced';
+    const key = 'homepage-visits';
+    
+    // 获取当前访问量
+    const getResponse = await fetch(`${countApiUrl}/get/${namespace}/${key}`);
+    if (getResponse.ok) {
+      const data = await getResponse.json();
+      let visitCount = data.value;
+      
+      // 增加访问量
+      await fetch(`${countApiUrl}/hit/${namespace}/${key}`);
+      
+      // 更新页面显示
+      const visitCountElement = document.getElementById('visitCount');
+      if (visitCountElement) {
+        visitCountElement.textContent = visitCount + 1; // 显示更新后的访问量
+      }
+    }
+  } catch (error) {
+    console.error('获取访问量失败:', error);
+    // 访问量获取失败时不影响页面其他功能
+  }
+}
+
 async function fetchGitHubStats() {
   try {
-    const response = await fetch('https://api.github.com/repos/dw-dengwei/daily-arXiv-ai-enhanced');
+    const response = await fetch('https://github.com/scouthe/arxiv_crawler_ai_enhanced');
     const data = await response.json();
     const starCount = data.stargazers_count;
     const forkCount = data.forks_count;

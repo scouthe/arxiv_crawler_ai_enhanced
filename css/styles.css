@@ -250,7 +250,8 @@ header {
 }
 
 .star-badge,
-.fork-badge {
+.fork-badge,
+.visit-badge {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -261,20 +262,25 @@ header {
   font-weight: 600;
 }
 
-.star-badge svg {
-  fill: white;
-  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.3));
-}
-
-.fork-badge svg {
+.star-badge svg,
+.fork-badge svg,
+.visit-badge svg {
   fill: white;
   filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.3));
 }
 
 .star-count,
-.fork-count {
+.fork-count,
+.visit-count {
   color: white;
   font-weight: 600;
+}
+
+.visit-label {
+  color: white;
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.9;
 }
 
 .header-controls {
@@ -1674,10 +1680,6 @@ footer {
   letter-spacing: 0;
   text-transform: none;
 }
-
-  padding-left: 3px; /* 减少左侧内边距 */
-}
-
 
 .author-tag {
   display: inline-flex;
