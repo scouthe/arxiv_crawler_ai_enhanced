@@ -596,7 +596,7 @@ class PaperExporter:
                     f"[bold green]Output {current_filename}.jsonl completed. {len(chosen_papers)} papers exported"
                 )
     
-    def to_ai_enhanced_jsonl(self, output_dir="./data", filename_format="%Y-%m-%d", model_name="deepseek-chat", language="Chinese", max_workers=4, provider=None):
+    def to_ai_enhanced_jsonl(self, output_dir="./data", filename_format="%Y-%m-%d", model_name="deepseek-chat", language="Chinese", max_workers=1, provider=None):
         """
         导出AI增强的论文数据为JSONL格式
         
@@ -646,7 +646,9 @@ class PaperExporter:
                     f.write(json.dumps(item, ensure_ascii=False) + "\n")
             
             # 删除临时文件
-            temp_file.unlink()
+            if temp_file.exists():
+                temp_file.unlink()
+
             
             # 更新数据库中的AI内容
             self._update_ai_content(enhanced_data)

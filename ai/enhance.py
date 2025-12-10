@@ -147,7 +147,7 @@ def process_single_item(chain, item: Dict, language: str,provider) -> Dict:
     #         return None
     return item
 
-def process_all_items(data: List[Dict], model_name: str = "deepseek-chat", language: str = "Chinese", max_workers: int = 4, provider: str = "official") -> List[Dict]:
+def process_all_items(data: List[Dict], model_name: str = "deepseek-chat", language: str = "Chinese", max_workers: int = 1, provider: str = "official") -> List[Dict]:
     """
     并行处理所有数据项，使用大模型生成AI增强内容
     
@@ -245,7 +245,7 @@ def process_all_items(data: List[Dict], model_name: str = "deepseek-chat", langu
     return processed_data
 
 def enhance_jsonl_data(jsonl_data: List[Dict], model_name: str = "deepseek-chat",
-                         language: str = "Chinese", max_workers: int = 4, 
+                         language: str = "Chinese", max_workers: int = 1, 
                          provider="official") -> List[Dict]:
     """
     增强JSONL数据，添加AI生成的内容
