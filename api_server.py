@@ -147,6 +147,12 @@ def run_git_sync():
     git_repo = Path("/app/git_repo")
     dest_data = git_repo / "data"
     dest_assets = git_repo / "assets"
+    src_db = Path("/app/papers.db")          # 如果你的 DB 在 /app 根目录
+
+    dest_db = git_repo / "papers.db"
+    if src_db.exists():
+        shutil.copy2(src_db, dest_db)
+        print("✅ papers.db 已更新到 git_repo")
 
     if src_assets.exists():
         dest_assets.mkdir(parents=True, exist_ok=True)
