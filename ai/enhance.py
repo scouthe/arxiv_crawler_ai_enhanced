@@ -1,6 +1,7 @@
 import os
 import json
 import sys
+import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict
 from queue import Queue
@@ -11,7 +12,7 @@ import dotenv
 import argparse
 from tqdm import tqdm
 from langchain_core.output_parsers import PydanticOutputParser
-from langchain_core.messages import SystemMessage
+from langchain_core.messages import SystemMessage, AIMessage
 import langchain_core.exceptions
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import (
@@ -36,6 +37,21 @@ system = open(os.path.join(current_dir, "system.txt"), "r").read()
 
 def _extract_json(text: str) -> dict:
     text = text.strip()
+    # 兼容内容被整体 JSON 转义（如 "\"{...}\""）
+    if (text.startswith('"') and text.endswith('"')) or (text.startswith("'") and text.endswith("'")):
+        try:
+            text = json.loads(text)
+        except Exception:
+            pass
+    # 兼容直接返回 OpenAI/本地服务的完整响应 JSON
+    try:
+        if text.lstrip().startswith("{") and '"choices"' in text:
+            obj = json.loads(text)
+            msg = obj.get("choices", [{}])[0].get("message", {}).get("content")
+            if msg:
+                text = msg
+    except Exception:
+        pass
     # 兼容 ```json ... ```
     m = re.search(r"```json\s*(\{.*?\})\s*```", text, flags=re.S)
     if m:
@@ -114,7 +130,7 @@ def process_single_item(chain, item: Dict, language: str,provider) -> Dict:
         item["AI"] = obj.model_dump()
     except langchain_core.exceptions.OutputParserException as e:
         # 尝试从错误信息中提取 JSON 字符串并修复
-        error_msg = str(e)
+        error_msg = getattr(e, "llm_output", None) or str(e)
         partial_data = {}
         
         if "Function Structure arguments:" in error_msg:
@@ -125,6 +141,11 @@ def process_single_item(chain, item: Dict, language: str,provider) -> Dict:
                 json_str = json_str.replace('\\', '\\\\')
                 # 尝试解析修复后的 JSON
                 partial_data = json.loads(json_str)
+            except Exception as json_e:
+                print(f"Failed to parse JSON for {item.get('id', 'unknown')}: {json_e}", file=sys.stderr)
+        else:
+            try:
+                partial_data = _extract_json(error_msg)
             except Exception as json_e:
                 print(f"Failed to parse JSON for {item.get('id', 'unknown')}: {json_e}", file=sys.stderr)
         
