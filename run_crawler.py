@@ -108,6 +108,7 @@ def ai_enhance_only(date_set=None):
     env_api_key = os.environ.get("OPENAI_API_KEY", "")
     env_base_url = os.environ.get("OPENAI_BASE_URL", "")
     env_model_name = os.environ.get("MODEL_NAME", "")
+    env_language = os.environ.get("LANGUAGE", "")
     env_provider = os.environ.get("PROVIDER", "official")
     
     # 打印环境变量，隐藏敏感信息
@@ -117,6 +118,7 @@ def ai_enhance_only(date_set=None):
     print(f"OPENAI_API_KEY: {'[SET]' if env_api_key else '[NOT SET]'}")
     print(f"OPENAI_BASE_URL: {env_base_url if env_base_url else '[NOT SET]'}")
     print(f"MODEL_NAME: {env_model_name if env_model_name else '[NOT SET]'}")
+    print(f"LANGUAGE: {env_language if env_language else '[NOT SET]'}")
     print(f"PROVIDER: {env_provider}")
     print("------------------\n")
     
@@ -135,7 +137,14 @@ def ai_enhance_only(date_set=None):
         
         # 生成AI增强的JSONL文件
         print(f"生成AI增强的JSONL文件...")
-        scraper.to_ai_enhanced_jsonl(output_dir="./data", filename_format="%Y-%m-%d", max_workers=max_workers,provider=env_provider)
+        scraper.to_ai_enhanced_jsonl(
+            output_dir="./data",
+            filename_format="%Y-%m-%d",
+            model_name=env_model_name if env_model_name else "deepseek-chat",
+            language=env_language if env_language else "Chinese",
+            max_workers=max_workers,
+            provider=env_provider,
+        )
         
         # 更新assets/file-list.txt（添加AI增强的JSONL文件）
         print(f"更新assets/file-list.txt...")

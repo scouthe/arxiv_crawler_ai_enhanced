@@ -2,6 +2,7 @@ import os
 import json
 import sys
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict
 from queue import Queue
@@ -86,6 +87,35 @@ def is_sensitive(content: str) -> bool:
         print(f"Sensitive check error: {e}", file=sys.stderr)
         return True
 
+
+def _is_local_model_unloaded_error(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    markers = [
+        "no models loaded",
+        "please load a model",
+        "lms load",
+        "model is not loaded",
+    ]
+    return any(marker in msg for marker in markers)
+
+
+def _fetch_local_model_ids(base_url: str, api_key: str) -> List[str]:
+    if not base_url:
+        return []
+
+    base = base_url.rstrip("/")
+    models_url = f"{base}/models" if base.endswith("/v1") else f"{base}/v1/models"
+    headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+
+    try:
+        resp = requests.get(models_url, headers=headers, timeout=10)
+        resp.raise_for_status()
+        data = resp.json().get("data", [])
+        return [m.get("id") for m in data if isinstance(m, dict) and m.get("id")]
+    except Exception as e:
+        print(f"Failed to query local model list from {models_url}: {e}", file=sys.stderr)
+        return []
+
 def process_single_item(chain, item: Dict, language: str,provider) -> Dict:
     """
     处理单个数据项，使用大模型生成AI增强内容
@@ -113,11 +143,37 @@ def process_single_item(chain, item: Dict, language: str,provider) -> Dict:
     }
     
     try:
-        response: Structure = chain.invoke({
-            "language": language,
-            "title": item['title'],
-            "abstract": item['summary']
-        })
+        response = None
+        last_invoke_error = None
+        max_attempts = 3 if provider == "local" else 1
+        for attempt in range(1, max_attempts + 1):
+            try:
+                response = chain.invoke({
+                    "language": language,
+                    "title": item['title'],
+                    "abstract": item['summary']
+                })
+                break
+            except Exception as invoke_error:
+                last_invoke_error = invoke_error
+                if (
+                    provider == "local"
+                    and _is_local_model_unloaded_error(invoke_error)
+                    and attempt < max_attempts
+                ):
+                    wait_seconds = attempt * 2
+                    print(
+                        f"Local model not loaded for {item.get('id', 'unknown')}, retrying in {wait_seconds}s "
+                        f"({attempt}/{max_attempts})",
+                        file=sys.stderr,
+                    )
+                    time.sleep(wait_seconds)
+                    continue
+                raise
+
+        if response is None and last_invoke_error is not None:
+            raise last_invoke_error
+
         if isinstance(response, Structure):
             item["AI"] = response.model_dump()
             return item
@@ -194,6 +250,14 @@ def process_all_items(data: List[Dict], model_name: str = "deepseek-chat", langu
         api_key  = os.environ.get("OPENAI_API_KEY", "lm-studio")  # LM Studio 一般不校验，给个占位
         base_url = os.environ.get("OPENAI_BASE_URL")  # 例如 http://127.0.0.1:1234/v1
         # model_name 用你本地模型的名字，比如 "qwen2.5-32b-instruct"
+        local_model_ids = _fetch_local_model_ids(base_url, api_key)
+        if local_model_ids and model_name not in local_model_ids:
+            print(
+                f"Configured MODEL_NAME '{model_name}' not found on local server. "
+                f"Fallback to '{local_model_ids[0]}'.",
+                file=sys.stderr,
+            )
+            model_name = local_model_ids[0]
     else:
         raise ValueError(f"Unknown provider: {provider}")
     # 创建ChatOpenAI实例，传递API密钥和基础URL
