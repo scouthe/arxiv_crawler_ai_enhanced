@@ -161,9 +161,25 @@ def run_git_sync():
 
     if src_data.exists():
         dest_data.mkdir(parents=True, exist_ok=True)
-        for file in src_data.glob(f"*{today_str}*.jsonl"):
-            shutil.copy2(file, dest_data / file.name)
-            print(f"✅ 已复制: {file.name}")
+
+        # 全量同步 data 目录：新增/修改会复制，删除会在目标目录移除
+        src_rel_files = set()
+        for src_file in src_data.rglob("*"):
+            if src_file.is_file():
+                rel = src_file.relative_to(src_data)
+                src_rel_files.add(rel)
+                target_file = dest_data / rel
+                target_file.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src_file, target_file)
+                print(f"✅ 已同步: data/{rel}")
+
+        # 清理目标目录中已经在源目录删除的文件，确保“全部更改”被推送
+        for dest_file in dest_data.rglob("*"):
+            if dest_file.is_file():
+                rel = dest_file.relative_to(dest_data)
+                if rel not in src_rel_files:
+                    dest_file.unlink()
+                    print(f"🗑️ 已删除: data/{rel}")
 
     try:
         subprocess.run(["git", "config", "--global", "--add", "safe.directory", "/app/git_repo"], check=True)
