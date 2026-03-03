@@ -247,8 +247,8 @@ def process_all_items(data: List[Dict], model_name: str = "deepseek-chat", langu
         base_url = os.environ.get("OPENAI_BASE_URL", "https://api.deepseek.com")
         # model_name 继续用 env/参数传入的官方模型名，比如 gpt-4o-mini
     elif provider == "local":
-        api_key  = os.environ.get("OPENAI_API_KEY", "lm-studio")  # LM Studio 一般不校验，给个占位
-        base_url = os.environ.get("OPENAI_BASE_URL")  # 例如 http://127.0.0.1:1234/v1
+        api_key  = os.environ.get("OPENAI_API_KEY", "vllm-local")  # vLLM 通常不校验，给个占位
+        base_url = os.environ.get("OPENAI_BASE_URL", "http://127.0.0.1:8900/v1")
         # model_name 用你本地模型的名字，比如 "qwen2.5-32b-instruct"
         local_model_ids = _fetch_local_model_ids(base_url, api_key)
         if local_model_ids and model_name not in local_model_ids:

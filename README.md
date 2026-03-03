@@ -238,6 +238,46 @@ python run_crawler.py --all --date 2025-12-05
 - `--date`：指定要爬取的日期，格式为YYYY-MM-DD，留空表示今天
 - 优先级：命令行参数 > 环境变量 > 默认值
 
+## ⏰ 微信发布定时服务（替代 n8n HTTP 触发）
+
+如果你不想再通过 FastAPI HTTP 调用，可以直接运行本地定时服务。
+
+### 1) 一次性执行（便于调试）
+
+```bash
+python run_wechat_scheduler.py --once --date 2026-03-02
+```
+
+可选 `--dry-run` 只生成内容不提交微信：
+
+```bash
+python run_wechat_scheduler.py --once --date 2026-03-02 --dry-run
+```
+
+### 2) 常驻定时执行（像 n8n Cron）
+
+```bash
+python run_wechat_scheduler.py
+```
+
+调度参数在 `.env` 中配置：
+
+- `WECHAT_SCHEDULE_CRON`：cron 表达式（当前支持固定分时，如 `0 8 * * *`）
+- `WECHAT_SCHEDULE_TARGET_DATE`：`today` 或 `yesterday`
+- `WECHAT_RUN_ARXIV_MODULE`：是否执行三篇论文模块
+- `WECHAT_RUN_JOURNAL_MODULE`：是否执行期刊介绍模块
+- `WECHAT_RUNS_DIR`：运行结果持久化目录
+
+### 3) 数据持久化与迁移
+
+每次执行会落盘到 `WECHAT_RUNS_DIR`，包含：
+
+- `runs.jsonl`：执行汇总（可直接导入分析系统）
+- `YYYY-MM-DD/<run_id>/request.json`：请求参数快照
+- `YYYY-MM-DD/<run_id>/result.json`：执行结果快照（成功时）
+- `YYYY-MM-DD/<run_id>/error.txt`：错误信息（失败时）
+- `scheduler_state.json`：调度去重状态
+
 ### 脚本输出
 
 运行爬虫后，你将看到类似以下的输出：

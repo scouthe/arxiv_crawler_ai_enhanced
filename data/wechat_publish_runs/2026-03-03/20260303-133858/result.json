@@ -1,0 +1,46 @@
+{
+  "status": "success",
+  "date": "2026-02-18",
+  "articles_count": 3,
+  "draft_media_id": null,
+  "article_titles": [
+    "人工智能，计算机视觉，机器学习， 图像和视频处理论文速递--(2026-02-18)",
+    "声音，音频和语音处理论文速递--(2026-02-18)",
+    "人机交互，机器人技术论文速递--(2026-02-18)"
+  ],
+  "diagnostics": {
+    "arxiv": {
+      "group_main": {
+        "stats": {
+          "ai": 56,
+          "cv": 91,
+          "lg": 56,
+          "iv": 2
+        },
+        "cards_after_filter": 62,
+        "filtered_text_len": 128111
+      },
+      "group_audio": {
+        "stats": {
+          "sd": 7,
+          "as": 6
+        },
+        "cards_after_filter": 13,
+        "filtered_text_len": 22023
+      },
+      "group_hcro": {
+        "stats": {
+          "hc": 22,
+          "ro": 50,
+          "nc": 0
+        },
+        "cards_after_filter": 40,
+        "filtered_text_len": 84093
+      }
+    },
+    "git_sync": {
+      "status": "error",
+      "message": "git_repo 不存在: /app/git_repo"
+    }
+  }
+}
