@@ -1,0 +1,1021 @@
+{
+  "name": "微信公众号文章发布 最终版--3.0",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "text",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -544,
+        848
+      ],
+      "id": "f0df8e60-160a-41a0-995e-b8dde99ab638",
+      "name": "提取文件文本"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. 获取输入\nconst inputData = $input.first().json;\nconst fullText = inputData.output || \"\";\nconst htmlMoban = inputData.moban;\n\n// ================= 配置区域 =================\n// 只要标题行中 **包含** 以下任意一个字符串，该版块就会被保留\nconst targetKeywords = [\n    \"人工智能(cs.AI:Artificial Intelligence)\",\n    \"计算机视觉和模式识别(cs.CV:Computer Vision and Pattern Recognition)\",\n  \"机器学习(cs.LG:Machine Learning)\",\n  \"图像和视频处理(eess.IV:Image and Video Processing)\"\n];\n\n// 每个分类最大保留的论文数量\nconst maxPapersPerCategory = 20; \n\n// *** 新增：初始化统计对象 ***\nconst stats = {\n    ai: 0,\n    cv: 0,\n    lg: 0,\n    iv: 0\n};\n// ===========================================\n\n// 2. 逻辑处理：按 ## 切分所有版块\nconst blocks = fullText.split(/(?=^##\\s)/gm).filter(s => s.trim() !== '');\n\nconst filteredBlocks = [];\n\nfor (const block of blocks) {\n    // 提取当前块的标题行\n    const titleMatch = block.match(/^##\\s*(.+)$/m);\n    \n    if (titleMatch) {\n        const currentTitle = titleMatch[1].trim();\n        const headerLine = titleMatch[0]; // 获取完整的标题行\n        \n        // 检查当前标题是否包含我们的目标关键词\n        const isMatch = targetKeywords.some(keyword => currentTitle.includes(keyword));\n        \n        if (isMatch) {\n            \n            // 1. 去掉标题行，获取剩下的论文内容主体\n            let contentBody = block.substring(titleMatch.index + headerLine.length).trim();\n            \n            // 2. 按 【数字】 切分论文\n            const papers = contentBody.split(/(?=【\\d+】)/g).filter(s => s.trim() !== '');\n            \n            // *** 新增逻辑：在截取前，统计原始数量 ***\n            // 根据标题判断属于哪个分类，并记录数量\n            if (currentTitle.includes(\"cs.AI\")) stats.ai = papers.length;\n            else if (currentTitle.includes(\"cs.CV\")) stats.cv = papers.length;\n            else if (currentTitle.includes(\"cs.LG\")) stats.lg = papers.length;\n            else if (currentTitle.includes(\"eess.IV\")) stats.iv = papers.length;\n\n            // 3. 截取前 N 个论文\n            const limitedPapers = papers.slice(0, maxPapersPerCategory);\n            \n            // 4. 重新组装\n            const newBlock = headerLine + \"\\n\\n\" + limitedPapers.join(\"\");\n            \n            filteredBlocks.push(newBlock);\n        }\n    }\n}\n\n// 3. 合并结果\nconst resultText = filteredBlocks.join(\"\\n\\n\");\n\n// 4. 输出\nreturn {\n    output: resultText,\n    moban: htmlMoban,\n    stats: stats // *** 将统计数据传给下一个节点 ***\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        160,
+        848
+      ],
+      "id": "902de367-7667-4516-8051-901f2a983e65",
+      "name": "筛选指定分类"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. 获取输入\nconst inputJson = $input.first().json;\nconst markdownText = inputJson.output || \"\";\nconst htmlMoban = inputJson.moban;\n// *** 新增：获取统计数据，如果没有则给默认值 ***\nconst stats = inputJson.stats || { ai: 0, cv: 0, lg: 0, iv: 0 };\n\n// 定义头部标题的 HTML 模板\nconst headerTemplate = `<p style=\"font-size: 0px; line-height: 0; margin: 0px;\">&nbsp;</p><section style=\"text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px\"><section data-pm-slice=\"0 0 []\" style=\"-webkit-tap-highlight-color: transparent;margin: 0px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box !important;overflow-wrap: break-word !important;color: rgba(0, 0, 0, 0.9);font-family: system-ui, -apple-system, BlinkMacSystemFont, Arial, sans-serif;font-size: 17px;font-style: normal;font-variant-ligatures: normal;font-variant-caps: normal;font-weight: 400;letter-spacing: 0.544px;orphans: 2;text-align: justify;text-indent: 0px;text-transform: none;widows: 2;word-spacing: 0px;-webkit-text-stroke-width: 0px;white-space: normal;background-color: rgb(255, 255, 255);text-decoration-thickness: initial;text-decoration-style: initial;text-decoration-color: initial;visibility: visible;;margin-top: 0\"><section data-pm-slice=\"0 0 []\" style=\"-webkit-tap-highlight-color: transparent;margin: 0px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box !important;overflow-wrap: break-word !important;color: rgba(0, 0, 0, 0.9);font-size: 17px;letter-spacing: 0.544px;text-align: justify;text-decoration-thickness: initial;background-color: rgb(255, 255, 255);visibility: visible;font-family: system-ui, -apple-system, BlinkMacSystemFont, Arial, sans-serif;\"><section data-role=\"title\" data-tools=\"135编辑器\" data-id=\"110559\" style=\"-webkit-tap-highlight-color: transparent;margin: 0px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box !important;overflow-wrap: break-word !important;position: relative;letter-spacing: 0.544px;color: rgb(34, 34, 34);visibility: visible;font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif;\"><section style=\"-webkit-tap-highlight-color: transparent;margin: 10px auto 0px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box !important;overflow-wrap: break-word !important;text-align: center;visibility: visible;\"><section style=\"-webkit-tap-highlight-color: transparent;margin: 0px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box !important;overflow-wrap: break-word !important;display: flex;justify-content: center;align-items: center;visibility: visible;\"><p style=\"-webkit-tap-highlight-color: transparent;margin: 0px 10px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box !important;overflow-wrap: break-word !important;clear: both;min-height: 1em;font-size: 16px;letter-spacing: 1px;color: rgb(11, 67, 209);visibility: visible;\"><span style=\"-webkit-tap-highlight-color: transparent;margin: 0px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box !important;overflow-wrap: break-word !important;font-size: 18px;visibility: visible;\"><strong data-brushtype=\"text\" style=\"-webkit-tap-highlight-color: transparent;margin: 0px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box !important;overflow-wrap: break-word !important;visibility: visible;\"><span style=\"-webkit-tap-highlight-color: transparent;margin: 0px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box !important;overflow-wrap: break-word !important;visibility: visible;\">{{CATEGORY_TITLE}}</span></strong></span></p><section style=\"-webkit-tap-highlight-color: transparent;margin: 0px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box;overflow-wrap: break-word !important;width: 60px;line-height: 0;flex-shrink: 0;visibility: visible;\"><svg version=\"1.1\" xmlns=\"http://www.w3.org/2000/svg\" x=\"0px\" y=\"0px\" viewBox=\"0 0 94.71 22.73\" style=\"visibility: visible;\" role=\"img\" aria-label=\"插图\"><g style=\"visibility: visible;\"><rect x=\"16.18\" y=\"10.86\" transform=\"matrix(-1 5.716437e-11 -5.716437e-11 -1 110.893 22.7254)\" style=\"fill: #72c1f4;visibility: visible;\" width=\"78.53\" height=\"1\"></rect><polygon style=\"fill: #72c1f4;visibility: visible;\" points=\"17.44,3.16 21.2,3.16 15.72,19.56 11.97,19.56\"></polygon><polygon style=\"fill: #ffae28;visibility: visible;\" points=\"7.52,0 13.16,0 5.64,22.73 0,22.73\"></polygon></g></svg></section></section></section></section></section></section>`;\n\nconst fullText = markdownText.trim();\nconst finalResults = [];\n\n// 2. 第一层分割\nconst categoryBlocks = fullText.split(/(?=^##\\s)/gm).filter(s => s.trim() !== '');\n\nfor (const block of categoryBlocks) {\n    let cleanBlock = block.trim();\n    let categoryTitle = \"Daily Papers\";\n    let categoryHtml = \"\";\n\n    const titleMatch = cleanBlock.match(/^##\\s*(.+)$/m);\n    if (titleMatch) {\n        categoryTitle = titleMatch[1].trim();\n        categoryHtml = headerTemplate.replace(\"{{CATEGORY_TITLE}}\", categoryTitle);\n        cleanBlock = cleanBlock.replace(titleMatch[0], \"\").trim();\n    }\n\n    const firstSplitIndex = cleanBlock.search(/【\\d+】/);\n    if (firstSplitIndex >= 0) {\n        cleanBlock = cleanBlock.substring(firstSplitIndex);\n    }\n    \n    const paperBlocks = cleanBlock.split(/(?=【\\d+】)/g).filter(s => s.trim() !== '');\n\n    let isFirstPaperInCategory = true;\n\n    for (const paperText of paperBlocks) {\n        const lines = paperText.split('\\n');\n        let data = {\n            englishTitle: \"\",\n            chineseTitle: \"\",\n            arxivLink: \"\",\n            authors: \"\",\n            notes: \"No Notes\",\n            chineseAbstract: \"\",\n            englishAbstract: \"\"\n        };\n\n        for (const line of lines) {\n            const trimmedLine = line.trim();\n            if (trimmedLine.startsWith('【')) {\n                const bracketIndex = trimmedLine.indexOf('【');\n                if (bracketIndex !== -1) {\n                    data.englishTitle = trimmedLine.substring(bracketIndex).trim(); \n                } else {\n                    data.englishTitle = trimmedLine.trim();\n                }\n            } else if (trimmedLine.startsWith('- **标题**:')) {\n                data.chineseTitle = trimmedLine.substring(trimmedLine.indexOf(':') + 1).trim();\n            }else if (trimmedLine.startsWith('- **链接**:')) {\n                // 修改说明：直接截取冒号后的内容，移除空格，不再强制要求 [[arxiv](url)] 格式\n                data.arxivLink = trimmedLine.substring(trimmedLine.indexOf(':') + 1).trim();\n            } else if (trimmedLine.startsWith('> **作者**:')) {\n                data.authors = trimmedLine.substring(trimmedLine.indexOf(':') + 1).trim();\n            } else if (trimmedLine.startsWith('> **摘要**:')) {\n                data.chineseAbstract = trimmedLine.substring(trimmedLine.indexOf(':') + 1).trim();\n            } else if (trimmedLine.startsWith('> **Abstract**:')) {\n                data.englishAbstract = trimmedLine.substring(trimmedLine.indexOf(':') + 1).trim();\n            }\n        }\n        \n        finalResults.push({\n            json: {\n                ...data,\n                moban: htmlMoban,\n                categoryHtml: isFirstPaperInCategory ? categoryHtml : \"\",\n                stats: stats // *** 关键修改：将 stats 传递给每一篇论文 ***\n            }\n        });\n\n        isFirstPaperInCategory = false; \n    }\n}\n\nreturn finalResults;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        384,
+        848
+      ],
+      "id": "1949b7e4-7fb6-47e1-b44c-fdcc7aab29f5",
+      "name": "拆分每个论文"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst htmlList = [];\n\n// ================== 获取统计数据 ==================\nconst stats = items[0] && items[0].json.stats ? items[0].json.stats : { ai: 0, cv: 0, lg: 0, iv: 0 };\n\n// ================== 定义 HTML 模板 (强制样式) ==================\n\n// 1. 顶部大标题 (璇玑枢)\nconst topHeader = '<p style=\"font-size: 0px; line-height: 0; margin: 0px;\">&nbsp;</p><section style=\"text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px\"><h1 id=\"0\" style=\"text-align: center; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; display: table; padding: 0 1em; border-bottom: 2px solid #0F4C81; margin: 2em auto 1em; color: #3f3f3f; font-weight: bold;margin-top: 0\" data-heading=\"true\"><strong style=\"text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: inherit; color: #0F4C81; font-weight: bold\">璇玑枢，助力学术成长，点亮科研之路</strong></h1></section>';\n\n// 2. 统计数据标题 (带数字)\nconst summaryHeader = `<p style=\"font-size: 0px; line-height: 0; margin: 0px;\">&nbsp;</p><section style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px\"><h2 id=\"0\" style=\" text-align: center; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 19.2px; display: table; padding: 0 0.2em; margin: 4em auto 1em; color: #fff; background: #0F4C81; font-weight: bold;margin-top: 0\" data-heading=\"true\">今日论文合集：cs.AI人工智能${stats.ai}篇，cs.CV计算机视觉和模式识别${stats.cv}篇，cs.LG机器学习${stats.lg}篇，eess.IV图像和视频处理${stats.iv}篇</h2></section>`;\n\nconst profileHtml = `<section class=\"mp_profile_iframe_wrp\" nodeleaf=\"\">\n  <mp-common-profile class=\"js_uneditable custom_select_card mp_profile_iframe\"\n    data-pluginname=\"mpprofile\"\n    data-nickname=\"璇玑枢\"\n    data-alias=\"mizhiNo1\"\n    data-from=\"0\"\n    data-headimg=\"http://mmbiz.qpic.cn/mmbiz_png/pdoYWlyPiaWFPmEWuRgRQVk08RkmAVKAxKSLHkiakfKDSScOp0iaH99L3NRvcicuVK6mtTibD9GNiaG5fFFCx956PZOA/0?wx_fmt=png\"\n    data-signature=\"最干货、暖心、有用的研究生学习类公众号，提供求学期间的经验分享、学习资源、生活分享，旨在帮助读研学生解疑答惑和真正提升自我！\"\n    data-id=\"MzU5MTU5NTI3MQ==\"\n    data-is_biz_ban=\"0\"\n    data-service_type=\"1\"\n    data-verify_status=\"0\">\n  </mp-common-profile>\n</section>\n<section><span leaf=\"\"><br></span></section>`;\n\n// 3. 详情链接部分 (已修复 \\n 显示问题)\nconst linkSection = '<section style=\"text-align: center; margin: 0 auto 30px; line-height: 1.6; font-family: -apple-system-font,BlinkMacSystemFont, Arial,sans-serif; font-size: 15px;\"><span style=\"color: #555;\">本文只展示部分论文，全部详情，AI总结请访问，或点击阅读原文</span><br><a href=\"https://scouthe.github.io/arxiv_crawler_ai_enhanced/\" style=\"color: #0F4C81; text-decoration: underline; font-weight: bold; word-break: break-all;\">https://scouthe.github.io/arxiv_crawler_ai_enhanced/</a></section><p style=\"font-size: 0px; line-height: 0; margin: 0px;\">&nbsp;</p>';\n\n// 4. 底部提示\nconst bottomFooter = '<p style=\"text-align: center; color: #888; font-size: 14px; margin-top: 20px;\">机器翻译由谷歌翻译提供，仅供参考</p><p style=\"text-align: center; color: #888; font-size: 14px; margin-top: 20px;\">点击阅读原文看详细论文内容，AI总结</p>';\n\n// 5. *** 核心文章模板 (强制 3 行样式) ***\n// 这里使用 <div> 标签将 作者、中文摘要、英文摘要 强制分行\nconst articleTemplate = `<section style=\"text-align: left;line-height: 1.75;font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif;font-size: 16px;\"> <p style=\"margin: 0px;padding: 0px;box-sizing: border-box !important;overflow-wrap: break-word !important;color: black;font-size: 14px;text-align: left;visibility: visible;\"> <span style=\"box-sizing: border-box !important;overflow-wrap: break-word !important;visibility: visible;\">{{ENGLISH_TITLE}}</span> </p> <div style=\"margin-top: 5px; margin-left: 0px; color: #3f3f3f;\"> <div style=\"margin-bottom: 3px;\"> <strong style=\"color: #0F4C81; font-weight: bold;\">标题</strong> <span>: {{CHINESE_TITLE}}</span> </div> <div style=\"margin-bottom: 3px;\"> <strong style=\"color: #0F4C81; font-weight: bold;\">链接</strong> <span>: {{ARXIV_LINK}}</span> </div> </div> </section> <section style=\"margin: 5px auto;padding: 0.5em;box-sizing: border-box;overflow-wrap: break-word !important;font-family: &quot;PingFang SC&quot;, system-ui, -apple-system, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif;font-style: normal;font-weight: 400;background: rgb(240, 240, 240);color: rgb(102, 101, 101);font-size: 14px;line-height: 1.3em;text-align: left;height: 12em;overflow: auto;\"> <div style=\"margin-bottom: 5px;\"><span style=\"font-size: 12px;color:#0F4C81;\"><b>作者</b>：{{AUTHORS}}</span></div> <div style=\"margin-bottom: 5px;\"><span style=\"font-size: 13px;color:#0F4C81;\"><b>摘要</b>：{{CHINESE_ABSTRACT}}</span></div> <div><span style=\"font-size: 13px;color:#0F4C81;\"><b>Abstract</b>：{{ENGLISH_ABSTRACT}}</span></div> </section> <p style=\"font-size: 0px;line-height: 0;margin: 0px;\">&nbsp;</p>`;\n\n// =================================================\nconst imageUrl = \"http://mmbiz.qpic.cn/mmbiz_png/pdoYWlyPiaWE88Y687KoLpQPXSw646ISBHAUmLDZ1Hk9YxnuC551yF9ibpLiaLK4NyqNO15icJvZdsic5HqMUNJQwNg/0?wx_fmt=png\";\nconst imageHtml = `<p style=\"text-align: center; margin-top: 20px;\"><img src=\"${imageUrl}\" style=\"max-width: 100%; height: auto;\"/></p>`;\n// 遍历每一篇论文\nfor (const item of items) {\n  const data = item.json;\n  \n  // 获取该论文携带的分类标题 HTML (如果有)\n  const currentCategoryHeader = data.categoryHtml || \"\";\n\n  // 使用我们刚定义的 articleTemplate，不再依赖 data.moban\n  let finalHtml = articleTemplate;\n  \n  finalHtml = finalHtml.replace(/{{ENGLISH_TITLE}}/g, data.englishTitle || \"\");\n  finalHtml = finalHtml.replace(/{{CHINESE_TITLE}}/g, data.chineseTitle || \"\");\n  finalHtml = finalHtml.replace(/{{ARXIV_LINK}}/g, data.arxivLink || \"\");\n  finalHtml = finalHtml.replace(/{{AUTHORS}}/g, data.authors || \"\");\n  finalHtml = finalHtml.replace(/{{NOTES}}/g, data.notes || \"No Notes\");\n  finalHtml = finalHtml.replace(/{{CHINESE_ABSTRACT}}/g, data.chineseAbstract || \"\");\n  finalHtml = finalHtml.replace(/{{ENGLISH_ABSTRACT}}/g, data.englishAbstract || \"\");\n\n  htmlList.push(currentCategoryHeader + finalHtml.trim());\n}\n\nconst mergedBody = htmlList.join(\"<br/>\");\n\n// 6. 最终拼接\nconst finalOutput = topHeader + summaryHeader + profileHtml+linkSection + mergedBody+imageHtml + bottomFooter;\n\nreturn [{ json: { htmlOutput: finalOutput } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        576,
+        848
+      ],
+      "id": "9191ab37-395f-46fb-bdde-c08209b3cd45",
+      "name": "填充模板并合并"
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "output",
+              "value": "={{ $json.data }}"
+            },
+            {
+              "name": "moban",
+              "value": "<section style=\"text-align: left;line-height: 1.75;font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif;font-size: 16px;\">   <p style=\"margin: 0px;padding: 0px;box-sizing: border-box !important;overflow-wrap: break-word !important;color: black;font-size: 14px;text-align: left;visibility: visible;\">     <span style=\"box-sizing: border-box !important;overflow-wrap: break-word !important;visibility: visible;\">{{ENGLISH_TITLE}}</span>   </p>      <div style=\"margin-top: 5px; margin-left: 0px; color: #3f3f3f;\">     <div style=\"margin-bottom: 3px;\">       <strong style=\"color: #0F4C81; font-weight: bold;\">标题</strong>       <span>: {{CHINESE_TITLE}}</span>     </div>     <div style=\"margin-bottom: 3px;\">       <strong style=\"color: #0F4C81; font-weight: bold;\">链接</strong>       <span>: {{ARXIV_LINK}}</span>     </div>   </div> </section>  <section style=\"margin: 5px auto;padding: 0.5em;box-sizing: border-box;overflow-wrap: break-word !important;font-family: &quot;PingFang SC&quot;, system-ui, -apple-system, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif;font-style: normal;font-weight: 400;background: rgb(240, 240, 240);color: rgb(102, 101, 101);font-size: 14px;line-height: 1.3em;text-align: left;height: 12em;overflow: auto;\">   <span style=\"font-size: 12px;color:#0F4C81;\"><b>作者</b>：{{AUTHORS}}<br></span>   <span style=\"font-size: 13px;color:#0F4C81;\"><b>摘要</b>：{{CHINESE_ABSTRACT}}<br><b>Abstract</b>：{{ENGLISH_ABSTRACT}}</span> </section>  <p style=\"font-size: 0px;line-height: 0;margin: 0px;\">&nbsp;</p>"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [
+        -352,
+        848
+      ],
+      "id": "97db5243-f482-4c89-a2d7-d4e6d1d7bd3e",
+      "name": "设置文章数据"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. 获取上一步生成的 HTML 内容\nconst htmlContent = $input.first().json.htmlOutput;\n\n// 2. 生成标题 (例如: Arxiv论文速递 2025-12-03)\n// 获取当前日期\nconst date = new Date();\nconst year = date.getFullYear();\nconst month = String(date.getMonth() + 1).padStart(2, '0');\nconst day = String(date.getDate()).padStart(2, '0');\nconst dateStr = `${year}-${month}-${day}`;\n\nconst title = `人工智能，计算机视觉，机器学习， 图像和视频处理论文速递--(${dateStr})`;\nconst digest = `今日最新 Arxiv 论文摘要汇总 (${dateStr})`;\n\n// 3. 构建微信文章对象\nconst articles = [\n    {\n        title: title,\n        author: 'tianhe',\n        digest: digest,\n        show_cover_pic: 1,\n        content: htmlContent,\n        content_source_url: 'https://scouthe.github.io/arxiv_crawler_ai_enhanced/',\n        // *** 注意 ***: 这里的 thumb_media_id 必须是你微信公众号后台素材库里的一张【永久图片素材】的 ID\n        // 如果 ID 错误或过期，会导致报错 \"media_id invalid\"\n        thumb_media_id: 'H1msZTrDz2EEoa3-9SwY7nYgsGEPu-9nbzP4p9Ji_slq23ayzKs61aMcUm8YLCsu', \n      need_open_comment:1,\n    }\n];\n\nreturn { articles };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        784,
+        848
+      ],
+      "id": "97ba074d-a37d-4814-ba69-67a1ca710fd4",
+      "name": "Code (文章数据处理)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. 获取输入\nconst inputData = $input.first().json;\nconst fullText = inputData.output || \"\";\nconst htmlMoban = inputData.moban;\n\n// ================= 配置区域 =================\n// 只要标题行中 **包含** 以下任意一个字符串，该版块就会被保留\nconst targetKeywords = [\n    \"声音(cs.SD:Sound)\",\n    \"音频和语音处理(eess.AS:Audio and Speech Processing)\"\n];\n\n// 每个分类最大保留的论文数量\nconst maxPapersPerCategory = 20; \n\n// *** 新增：初始化统计对象 ***\nconst stats = {\n    sd: 0,\n    as: 0\n};\n// ===========================================\n\n// 2. 逻辑处理：按 ## 切分所有版块\nconst blocks = fullText.split(/(?=^##\\s)/gm).filter(s => s.trim() !== '');\n\nconst filteredBlocks = [];\n\nfor (const block of blocks) {\n    // 提取当前块的标题行\n    const titleMatch = block.match(/^##\\s*(.+)$/m);\n    \n    if (titleMatch) {\n        const currentTitle = titleMatch[1].trim();\n        const headerLine = titleMatch[0]; // 获取完整的标题行\n        \n        // 检查当前标题是否包含我们的目标关键词\n        const isMatch = targetKeywords.some(keyword => currentTitle.includes(keyword));\n        \n        if (isMatch) {\n            \n            // 1. 去掉标题行，获取剩下的论文内容主体\n            let contentBody = block.substring(titleMatch.index + headerLine.length).trim();\n            \n            // 2. 按 【数字】 切分论文\n            const papers = contentBody.split(/(?=【\\d+】)/g).filter(s => s.trim() !== '');\n            \n            // *** 新增逻辑：在截取前，统计原始数量 ***\n            // 根据标题判断属于哪个分类，并记录数量\n            if (currentTitle.includes(\"cs.SD\")) stats.sd = papers.length;\n            else if (currentTitle.includes(\"eess.AS\")) stats.as = papers.length;\n\n            // 3. 截取前 N 个论文\n            const limitedPapers = papers.slice(0, maxPapersPerCategory);\n            \n            // 4. 重新组装\n            const newBlock = headerLine + \"\\n\\n\" + limitedPapers.join(\"\");\n            \n            filteredBlocks.push(newBlock);\n        }\n    }\n}\n\n// 3. 合并结果\nconst resultText = filteredBlocks.join(\"\\n\\n\");\n\n// 4. 输出\nreturn {\n    output: resultText,\n    moban: htmlMoban,\n    stats: stats // *** 将统计数据传给下一个节点 ***\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        160,
+        1088
+      ],
+      "id": "9b2c0ca4-683e-446f-9b2d-0a1b42214603",
+      "name": "筛选指定分类1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. 获取输入\nconst inputJson = $input.first().json;\nconst markdownText = inputJson.output || \"\";\nconst htmlMoban = inputJson.moban;\n// *** 新增：获取统计数据，如果没有则给默认值 ***\nconst stats = inputJson.stats || { ai: 0, cv: 0, lg: 0, iv: 0 };\n\n// 定义头部标题的 HTML 模板\nconst headerTemplate = `<p style=\"font-size: 0px; line-height: 0; margin: 0px;\">&nbsp;</p><section style=\"text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px\"><section data-pm-slice=\"0 0 []\" style=\"-webkit-tap-highlight-color: transparent;margin: 0px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box !important;overflow-wrap: break-word !important;color: rgba(0, 0, 0, 0.9);font-family: system-ui, -apple-system, BlinkMacSystemFont, Arial, sans-serif;font-size: 17px;font-style: normal;font-variant-ligatures: normal;font-variant-caps: normal;font-weight: 400;letter-spacing: 0.544px;orphans: 2;text-align: justify;text-indent: 0px;text-transform: none;widows: 2;word-spacing: 0px;-webkit-text-stroke-width: 0px;white-space: normal;background-color: rgb(255, 255, 255);text-decoration-thickness: initial;text-decoration-style: initial;text-decoration-color: initial;visibility: visible;;margin-top: 0\"><section data-pm-slice=\"0 0 []\" style=\"-webkit-tap-highlight-color: transparent;margin: 0px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box !important;overflow-wrap: break-word !important;color: rgba(0, 0, 0, 0.9);font-size: 17px;letter-spacing: 0.544px;text-align: justify;text-decoration-thickness: initial;background-color: rgb(255, 255, 255);visibility: visible;font-family: system-ui, -apple-system, BlinkMacSystemFont, Arial, sans-serif;\"><section data-role=\"title\" data-tools=\"135编辑器\" data-id=\"110559\" style=\"-webkit-tap-highlight-color: transparent;margin: 0px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box !important;overflow-wrap: break-word !important;position: relative;letter-spacing: 0.544px;color: rgb(34, 34, 34);visibility: visible;font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif;\"><section style=\"-webkit-tap-highlight-color: transparent;margin: 10px auto 0px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box !important;overflow-wrap: break-word !important;text-align: center;visibility: visible;\"><section style=\"-webkit-tap-highlight-color: transparent;margin: 0px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box !important;overflow-wrap: break-word !important;display: flex;justify-content: center;align-items: center;visibility: visible;\"><p style=\"-webkit-tap-highlight-color: transparent;margin: 0px 10px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box !important;overflow-wrap: break-word !important;clear: both;min-height: 1em;font-size: 16px;letter-spacing: 1px;color: rgb(11, 67, 209);visibility: visible;\"><span style=\"-webkit-tap-highlight-color: transparent;margin: 0px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box !important;overflow-wrap: break-word !important;font-size: 18px;visibility: visible;\"><strong data-brushtype=\"text\" style=\"-webkit-tap-highlight-color: transparent;margin: 0px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box !important;overflow-wrap: break-word !important;visibility: visible;\"><span style=\"-webkit-tap-highlight-color: transparent;margin: 0px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box !important;overflow-wrap: break-word !important;visibility: visible;\">{{CATEGORY_TITLE}}</span></strong></span></p><section style=\"-webkit-tap-highlight-color: transparent;margin: 0px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box;overflow-wrap: break-word !important;width: 60px;line-height: 0;flex-shrink: 0;visibility: visible;\"><svg version=\"1.1\" xmlns=\"http://www.w3.org/2000/svg\" x=\"0px\" y=\"0px\" viewBox=\"0 0 94.71 22.73\" style=\"visibility: visible;\" role=\"img\" aria-label=\"插图\"><g style=\"visibility: visible;\"><rect x=\"16.18\" y=\"10.86\" transform=\"matrix(-1 5.716437e-11 -5.716437e-11 -1 110.893 22.7254)\" style=\"fill: #72c1f4;visibility: visible;\" width=\"78.53\" height=\"1\"></rect><polygon style=\"fill: #72c1f4;visibility: visible;\" points=\"17.44,3.16 21.2,3.16 15.72,19.56 11.97,19.56\"></polygon><polygon style=\"fill: #ffae28;visibility: visible;\" points=\"7.52,0 13.16,0 5.64,22.73 0,22.73\"></polygon></g></svg></section></section></section></section></section></section>`;\n\nconst fullText = markdownText.trim();\nconst finalResults = [];\n\n// 2. 第一层分割\nconst categoryBlocks = fullText.split(/(?=^##\\s)/gm).filter(s => s.trim() !== '');\n\nfor (const block of categoryBlocks) {\n    let cleanBlock = block.trim();\n    let categoryTitle = \"Daily Papers\";\n    let categoryHtml = \"\";\n\n    const titleMatch = cleanBlock.match(/^##\\s*(.+)$/m);\n    if (titleMatch) {\n        categoryTitle = titleMatch[1].trim();\n        categoryHtml = headerTemplate.replace(\"{{CATEGORY_TITLE}}\", categoryTitle);\n        cleanBlock = cleanBlock.replace(titleMatch[0], \"\").trim();\n    }\n\n    const firstSplitIndex = cleanBlock.search(/【\\d+】/);\n    if (firstSplitIndex >= 0) {\n        cleanBlock = cleanBlock.substring(firstSplitIndex);\n    }\n    \n    const paperBlocks = cleanBlock.split(/(?=【\\d+】)/g).filter(s => s.trim() !== '');\n\n    let isFirstPaperInCategory = true;\n\n    for (const paperText of paperBlocks) {\n        const lines = paperText.split('\\n');\n        let data = {\n            englishTitle: \"\",\n            chineseTitle: \"\",\n            arxivLink: \"\",\n            authors: \"\",\n            notes: \"No Notes\",\n            chineseAbstract: \"\",\n            englishAbstract: \"\"\n        };\n\n        for (const line of lines) {\n            const trimmedLine = line.trim();\n            if (trimmedLine.startsWith('【')) {\n                const bracketIndex = trimmedLine.indexOf('【');\n                if (bracketIndex !== -1) {\n                    data.englishTitle = trimmedLine.substring(bracketIndex).trim(); \n                } else {\n                    data.englishTitle = trimmedLine.trim();\n                }\n            } else if (trimmedLine.startsWith('- **标题**:')) {\n                data.chineseTitle = trimmedLine.substring(trimmedLine.indexOf(':') + 1).trim();\n            } else if (trimmedLine.startsWith('- **链接**:')) {\n                // 修改说明：直接截取冒号后的内容，移除空格，不再强制要求 [[arxiv](url)] 格式\n                data.arxivLink = trimmedLine.substring(trimmedLine.indexOf(':') + 1).trim();\n            } else if (trimmedLine.startsWith('> **作者**:')) {\n                data.authors = trimmedLine.substring(trimmedLine.indexOf(':') + 1).trim();\n            } else if (trimmedLine.startsWith('> **摘要**:')) {\n                data.chineseAbstract = trimmedLine.substring(trimmedLine.indexOf(':') + 1).trim();\n            } else if (trimmedLine.startsWith('> **Abstract**:')) {\n                data.englishAbstract = trimmedLine.substring(trimmedLine.indexOf(':') + 1).trim();\n            }\n        }\n        \n        finalResults.push({\n            json: {\n                ...data,\n                moban: htmlMoban,\n                categoryHtml: isFirstPaperInCategory ? categoryHtml : \"\",\n                stats: stats // *** 关键修改：将 stats 传递给每一篇论文 ***\n            }\n        });\n\n        isFirstPaperInCategory = false; \n    }\n}\n\nreturn finalResults;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        384,
+        1088
+      ],
+      "id": "1eecc5b6-ca57-4c1a-81fe-0cd53cd2a150",
+      "name": "拆分每个论文1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst htmlList = [];\n\n// ================== 获取统计数据 ==================\nconst stats = items[0] && items[0].json.stats ? items[0].json.stats : { ai: 0, cv: 0, lg: 0, iv: 0 };\n\n// ================== 定义 HTML 模板 (强制样式) ==================\n\n// 1. 顶部大标题 (璇玑枢)\nconst topHeader = '<p style=\"font-size: 0px; line-height: 0; margin: 0px;\">&nbsp;</p><section style=\"text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px\"><h1 id=\"0\" style=\"text-align: center; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; display: table; padding: 0 1em; border-bottom: 2px solid #0F4C81; margin: 2em auto 1em; color: #3f3f3f; font-weight: bold;margin-top: 0\" data-heading=\"true\"><strong style=\"text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: inherit; color: #0F4C81; font-weight: bold\">璇玑枢，助力学术成长，点亮科研之路</strong></h1></section>';\n\n// 2. 统计数据标题 (带数字)\nconst summaryHeader = `<p style=\"font-size: 0px; line-height: 0; margin: 0px;\">&nbsp;</p><section style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px\"><h2 id=\"0\" style=\" text-align: center; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 19.2px; display: table; padding: 0 0.2em; margin: 4em auto 1em; color: #fff; background: #0F4C81; font-weight: bold;margin-top: 0\" data-heading=\"true\">今日论文合集：cs.SD声音${stats.sd}篇，eess.AS音频处理${stats.as}篇</h2></section>`;\nconst profileHtml = `<section class=\"mp_profile_iframe_wrp\" nodeleaf=\"\">\n  <mp-common-profile class=\"js_uneditable custom_select_card mp_profile_iframe\"\n    data-pluginname=\"mpprofile\"\n    data-nickname=\"璇玑枢\"\n    data-alias=\"mizhiNo1\"\n    data-from=\"0\"\n    data-headimg=\"http://mmbiz.qpic.cn/mmbiz_png/pdoYWlyPiaWFPmEWuRgRQVk08RkmAVKAxKSLHkiakfKDSScOp0iaH99L3NRvcicuVK6mtTibD9GNiaG5fFFCx956PZOA/0?wx_fmt=png\"\n    data-signature=\"最干货、暖心、有用的研究生学习类公众号，提供求学期间的经验分享、学习资源、生活分享，旨在帮助读研学生解疑答惑和真正提升自我！\"\n    data-id=\"MzU5MTU5NTI3MQ==\"\n    data-is_biz_ban=\"0\"\n    data-service_type=\"1\"\n    data-verify_status=\"0\">\n  </mp-common-profile>\n</section>\n<section><span leaf=\"\"><br></span></section>`;\n// 3. 详情链接部分 (已修复 \\n 显示问题)\nconst linkSection = '<section style=\"text-align: center; margin: 0 auto 30px; line-height: 1.6; font-family: -apple-system-font,BlinkMacSystemFont, Arial,sans-serif; font-size: 15px;\"><span style=\"color: #555;\">本文只展示部分论文，全部详情，AI总结请访问，或点击阅读原文</span><br><a href=\"https://scouthe.github.io/arxiv_crawler_ai_enhanced/\" style=\"color: #0F4C81; text-decoration: underline; font-weight: bold; word-break: break-all;\">https://scouthe.github.io/arxiv_crawler_ai_enhanced/</a></section><p style=\"font-size: 0px; line-height: 0; margin: 0px;\">&nbsp;</p>';\n\n// 4. 底部提示\nconst bottomFooter = '<p style=\"text-align: center; color: #888; font-size: 14px; margin-top: 20px;\">机器翻译由谷歌翻译提供，仅供参考</p><p style=\"text-align: center; color: #888; font-size: 14px; margin-top: 20px;\">点击阅读原文看详细论文内容，AI总结</p>';\n\n// 5. *** 核心文章模板 (强制 3 行样式) ***\n// 这里使用 <div> 标签将 作者、中文摘要、英文摘要 强制分行\nconst articleTemplate = `<section style=\"text-align: left;line-height: 1.75;font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif;font-size: 16px;\"> <p style=\"margin: 0px;padding: 0px;box-sizing: border-box !important;overflow-wrap: break-word !important;color: black;font-size: 14px;text-align: left;visibility: visible;\"> <span style=\"box-sizing: border-box !important;overflow-wrap: break-word !important;visibility: visible;\">{{ENGLISH_TITLE}}</span> </p> <div style=\"margin-top: 5px; margin-left: 0px; color: #3f3f3f;\"> <div style=\"margin-bottom: 3px;\"> <strong style=\"color: #0F4C81; font-weight: bold;\">标题</strong> <span>: {{CHINESE_TITLE}}</span> </div> <div style=\"margin-bottom: 3px;\"> <strong style=\"color: #0F4C81; font-weight: bold;\">链接</strong> <span>: {{ARXIV_LINK}}</span> </div> </div> </section> <section style=\"margin: 5px auto;padding: 0.5em;box-sizing: border-box;overflow-wrap: break-word !important;font-family: &quot;PingFang SC&quot;, system-ui, -apple-system, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif;font-style: normal;font-weight: 400;background: rgb(240, 240, 240);color: rgb(102, 101, 101);font-size: 14px;line-height: 1.3em;text-align: left;height: 12em;overflow: auto;\"> <div style=\"margin-bottom: 5px;\"><span style=\"font-size: 12px;color:#0F4C81;\"><b>作者</b>：{{AUTHORS}}</span></div> <div style=\"margin-bottom: 5px;\"><span style=\"font-size: 13px;color:#0F4C81;\"><b>摘要</b>：{{CHINESE_ABSTRACT}}</span></div> <div><span style=\"font-size: 13px;color:#0F4C81;\"><b>Abstract</b>：{{ENGLISH_ABSTRACT}}</span></div> </section> <p style=\"font-size: 0px;line-height: 0;margin: 0px;\">&nbsp;</p>`;\n\n// =================================================\nconst imageUrl = \"http://mmbiz.qpic.cn/mmbiz_png/pdoYWlyPiaWE88Y687KoLpQPXSw646ISBHAUmLDZ1Hk9YxnuC551yF9ibpLiaLK4NyqNO15icJvZdsic5HqMUNJQwNg/0?wx_fmt=png\";\nconst imageHtml = `<p style=\"text-align: center; margin-top: 20px;\"><img src=\"${imageUrl}\" style=\"max-width: 100%; height: auto;\"/></p>`;\n// 遍历每一篇论文\nfor (const item of items) {\n  const data = item.json;\n  \n  // 获取该论文携带的分类标题 HTML (如果有)\n  const currentCategoryHeader = data.categoryHtml || \"\";\n\n  // 使用我们刚定义的 articleTemplate，不再依赖 data.moban\n  let finalHtml = articleTemplate;\n  \n  finalHtml = finalHtml.replace(/{{ENGLISH_TITLE}}/g, data.englishTitle || \"\");\n  finalHtml = finalHtml.replace(/{{CHINESE_TITLE}}/g, data.chineseTitle || \"\");\n  finalHtml = finalHtml.replace(/{{ARXIV_LINK}}/g, data.arxivLink || \"\");\n  finalHtml = finalHtml.replace(/{{AUTHORS}}/g, data.authors || \"\");\n  finalHtml = finalHtml.replace(/{{NOTES}}/g, data.notes || \"No Notes\");\n  finalHtml = finalHtml.replace(/{{CHINESE_ABSTRACT}}/g, data.chineseAbstract || \"\");\n  finalHtml = finalHtml.replace(/{{ENGLISH_ABSTRACT}}/g, data.englishAbstract || \"\");\n\n  htmlList.push(currentCategoryHeader + finalHtml.trim());\n}\n\nconst mergedBody = htmlList.join(\"<br/>\");\n\n// 6. 最终拼接\nconst finalOutput = topHeader + summaryHeader+profileHtml + linkSection + mergedBody+imageHtml + bottomFooter;\n\nreturn [{ json: { htmlOutput: finalOutput } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        576,
+        1088
+      ],
+      "id": "bbe59093-4e10-43fb-88a3-77d3e5c37f45",
+      "name": "填充模板并合并1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. 获取上一步生成的 HTML 内容\nconst htmlContent = $input.first().json.htmlOutput;\n\n// 2. 生成标题 (例如: Arxiv论文速递 2025-12-03)\n// 获取当前日期\nconst date = new Date();\nconst year = date.getFullYear();\nconst month = String(date.getMonth() + 1).padStart(2, '0');\nconst day = String(date.getDate()).padStart(2, '0');\nconst dateStr = `${year}-${month}-${day}`;\n\nconst title = `声音，音频和语音处理论文速递--(${dateStr})`;\nconst digest = `今日最新 Arxiv 论文摘要汇总 (${dateStr})`;\n\n// 3. 构建微信文章对象\nconst articles = [\n    {\n        title: title,\n        author: 'tianhe',\n        digest: digest,\n        show_cover_pic: 1,\n        content: htmlContent,\n        content_source_url: 'https://scouthe.github.io/arxiv_crawler_ai_enhanced/',\n        // *** 注意 ***: 这里的 thumb_media_id 必须是你微信公众号后台素材库里的一张【永久图片素材】的 ID\n        // 如果 ID 错误或过期，会导致报错 \"media_id invalid\"\n        thumb_media_id: 'H1msZTrDz2EEoa3-9SwY7ujfXS7JGySdfP02DFW2Y8ODyQ2zzQz128iFo2bLRpgi',  \n      need_open_comment:1,\n    }\n];\n\nreturn { articles };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        784,
+        1088
+      ],
+      "id": "0e67c486-c79b-4480-b450-56141c654cc8",
+      "name": "Code (文章数据处理)1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. 获取输入\nconst inputData = $input.first().json;\nconst fullText = inputData.output || \"\";\nconst htmlMoban = inputData.moban;\n\n// ================= 配置区域 =================\n// 只要标题行中 **包含** 以下任意一个字符串，该版块就会被保留\nconst targetKeywords = [\n    \"人机交互(cs.HC:Human-Computer Interaction)\",\n    \"机器人技术(cs.RO:Robotics)\",\n  \"神经元和认知(q-bio.NC:Neurons and Cognition)\"\n];\n\n// 每个分类最大保留的论文数量\nconst maxPapersPerCategory = 20; \n\n// *** 新增：初始化统计对象 ***\nconst stats = {\n    hc: 0,\n    ro: 0,\n    nc: 0\n};\n// ===========================================\n\n// 2. 逻辑处理：按 ## 切分所有版块\nconst blocks = fullText.split(/(?=^##\\s)/gm).filter(s => s.trim() !== '');\n\nconst filteredBlocks = [];\n\nfor (const block of blocks) {\n    // 提取当前块的标题行\n    const titleMatch = block.match(/^##\\s*(.+)$/m);\n    \n    if (titleMatch) {\n        const currentTitle = titleMatch[1].trim();\n        const headerLine = titleMatch[0]; // 获取完整的标题行\n        \n        // 检查当前标题是否包含我们的目标关键词\n        const isMatch = targetKeywords.some(keyword => currentTitle.includes(keyword));\n        \n        if (isMatch) {\n            \n            // 1. 去掉标题行，获取剩下的论文内容主体\n            let contentBody = block.substring(titleMatch.index + headerLine.length).trim();\n            \n            // 2. 按 【数字】 切分论文\n            const papers = contentBody.split(/(?=【\\d+】)/g).filter(s => s.trim() !== '');\n            \n            // *** 新增逻辑：在截取前，统计原始数量 ***\n            // 根据标题判断属于哪个分类，并记录数量\n            if (currentTitle.includes(\"cs.HC\")) stats.hc = papers.length;\n            else if (currentTitle.includes(\"cs.RO\")) stats.ro = papers.length;\n            else if (currentTitle.includes(\"q-bio.NC\")) stats.nc = papers.length;\n\n            // 3. 截取前 N 个论文\n            const limitedPapers = papers.slice(0, maxPapersPerCategory);\n            \n            // 4. 重新组装\n            const newBlock = headerLine + \"\\n\\n\" + limitedPapers.join(\"\");\n            \n            filteredBlocks.push(newBlock);\n        }\n    }\n}\n\n// 3. 合并结果\nconst resultText = filteredBlocks.join(\"\\n\\n\");\n\n// 4. 输出\nreturn {\n    output: resultText,\n    moban: htmlMoban,\n    stats: stats // *** 将统计数据传给下一个节点 ***\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        144,
+        1344
+      ],
+      "id": "e2fccb1a-f51e-4728-801d-11b144feb4a4",
+      "name": "筛选指定分类2"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. 获取输入\nconst inputJson = $input.first().json;\nconst markdownText = inputJson.output || \"\";\nconst htmlMoban = inputJson.moban;\n// *** 新增：获取统计数据，如果没有则给默认值 ***\nconst stats = inputJson.stats || { ai: 0, cv: 0, lg: 0, iv: 0 };\n\n// 定义头部标题的 HTML 模板\nconst headerTemplate = `<p style=\"font-size: 0px; line-height: 0; margin: 0px;\">&nbsp;</p><section style=\"text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px\"><section data-pm-slice=\"0 0 []\" style=\"-webkit-tap-highlight-color: transparent;margin: 0px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box !important;overflow-wrap: break-word !important;color: rgba(0, 0, 0, 0.9);font-family: system-ui, -apple-system, BlinkMacSystemFont, Arial, sans-serif;font-size: 17px;font-style: normal;font-variant-ligatures: normal;font-variant-caps: normal;font-weight: 400;letter-spacing: 0.544px;orphans: 2;text-align: justify;text-indent: 0px;text-transform: none;widows: 2;word-spacing: 0px;-webkit-text-stroke-width: 0px;white-space: normal;background-color: rgb(255, 255, 255);text-decoration-thickness: initial;text-decoration-style: initial;text-decoration-color: initial;visibility: visible;;margin-top: 0\"><section data-pm-slice=\"0 0 []\" style=\"-webkit-tap-highlight-color: transparent;margin: 0px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box !important;overflow-wrap: break-word !important;color: rgba(0, 0, 0, 0.9);font-size: 17px;letter-spacing: 0.544px;text-align: justify;text-decoration-thickness: initial;background-color: rgb(255, 255, 255);visibility: visible;font-family: system-ui, -apple-system, BlinkMacSystemFont, Arial, sans-serif;\"><section data-role=\"title\" data-tools=\"135编辑器\" data-id=\"110559\" style=\"-webkit-tap-highlight-color: transparent;margin: 0px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box !important;overflow-wrap: break-word !important;position: relative;letter-spacing: 0.544px;color: rgb(34, 34, 34);visibility: visible;font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif;\"><section style=\"-webkit-tap-highlight-color: transparent;margin: 10px auto 0px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box !important;overflow-wrap: break-word !important;text-align: center;visibility: visible;\"><section style=\"-webkit-tap-highlight-color: transparent;margin: 0px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box !important;overflow-wrap: break-word !important;display: flex;justify-content: center;align-items: center;visibility: visible;\"><p style=\"-webkit-tap-highlight-color: transparent;margin: 0px 10px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box !important;overflow-wrap: break-word !important;clear: both;min-height: 1em;font-size: 16px;letter-spacing: 1px;color: rgb(11, 67, 209);visibility: visible;\"><span style=\"-webkit-tap-highlight-color: transparent;margin: 0px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box !important;overflow-wrap: break-word !important;font-size: 18px;visibility: visible;\"><strong data-brushtype=\"text\" style=\"-webkit-tap-highlight-color: transparent;margin: 0px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box !important;overflow-wrap: break-word !important;visibility: visible;\"><span style=\"-webkit-tap-highlight-color: transparent;margin: 0px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box !important;overflow-wrap: break-word !important;visibility: visible;\">{{CATEGORY_TITLE}}</span></strong></span></p><section style=\"-webkit-tap-highlight-color: transparent;margin: 0px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box;overflow-wrap: break-word !important;width: 60px;line-height: 0;flex-shrink: 0;visibility: visible;\"><svg version=\"1.1\" xmlns=\"http://www.w3.org/2000/svg\" x=\"0px\" y=\"0px\" viewBox=\"0 0 94.71 22.73\" style=\"visibility: visible;\" role=\"img\" aria-label=\"插图\"><g style=\"visibility: visible;\"><rect x=\"16.18\" y=\"10.86\" transform=\"matrix(-1 5.716437e-11 -5.716437e-11 -1 110.893 22.7254)\" style=\"fill: #72c1f4;visibility: visible;\" width=\"78.53\" height=\"1\"></rect><polygon style=\"fill: #72c1f4;visibility: visible;\" points=\"17.44,3.16 21.2,3.16 15.72,19.56 11.97,19.56\"></polygon><polygon style=\"fill: #ffae28;visibility: visible;\" points=\"7.52,0 13.16,0 5.64,22.73 0,22.73\"></polygon></g></svg></section></section></section></section></section></section>`;\n\nconst fullText = markdownText.trim();\nconst finalResults = [];\n\n// 2. 第一层分割\nconst categoryBlocks = fullText.split(/(?=^##\\s)/gm).filter(s => s.trim() !== '');\n\nfor (const block of categoryBlocks) {\n    let cleanBlock = block.trim();\n    let categoryTitle = \"Daily Papers\";\n    let categoryHtml = \"\";\n\n    const titleMatch = cleanBlock.match(/^##\\s*(.+)$/m);\n    if (titleMatch) {\n        categoryTitle = titleMatch[1].trim();\n        categoryHtml = headerTemplate.replace(\"{{CATEGORY_TITLE}}\", categoryTitle);\n        cleanBlock = cleanBlock.replace(titleMatch[0], \"\").trim();\n    }\n\n    const firstSplitIndex = cleanBlock.search(/【\\d+】/);\n    if (firstSplitIndex >= 0) {\n        cleanBlock = cleanBlock.substring(firstSplitIndex);\n    }\n    \n    const paperBlocks = cleanBlock.split(/(?=【\\d+】)/g).filter(s => s.trim() !== '');\n\n    let isFirstPaperInCategory = true;\n\n    for (const paperText of paperBlocks) {\n        const lines = paperText.split('\\n');\n        let data = {\n            englishTitle: \"\",\n            chineseTitle: \"\",\n            arxivLink: \"\",\n            authors: \"\",\n            notes: \"No Notes\",\n            chineseAbstract: \"\",\n            englishAbstract: \"\"\n        };\n\n        for (const line of lines) {\n            const trimmedLine = line.trim();\n            if (trimmedLine.startsWith('【')) {\n                const bracketIndex = trimmedLine.indexOf('【');\n                if (bracketIndex !== -1) {\n                    data.englishTitle = trimmedLine.substring(bracketIndex).trim(); \n                } else {\n                    data.englishTitle = trimmedLine.trim();\n                }\n            } else if (trimmedLine.startsWith('- **标题**:')) {\n                data.chineseTitle = trimmedLine.substring(trimmedLine.indexOf(':') + 1).trim();\n            }else if (trimmedLine.startsWith('- **链接**:')) {\n                // 修改说明：直接截取冒号后的内容，移除空格，不再强制要求 [[arxiv](url)] 格式\n                data.arxivLink = trimmedLine.substring(trimmedLine.indexOf(':') + 1).trim();\n            } else if (trimmedLine.startsWith('> **作者**:')) {\n                data.authors = trimmedLine.substring(trimmedLine.indexOf(':') + 1).trim();\n            } else if (trimmedLine.startsWith('> **摘要**:')) {\n                data.chineseAbstract = trimmedLine.substring(trimmedLine.indexOf(':') + 1).trim();\n            } else if (trimmedLine.startsWith('> **Abstract**:')) {\n                data.englishAbstract = trimmedLine.substring(trimmedLine.indexOf(':') + 1).trim();\n            }\n        }\n        \n        finalResults.push({\n            json: {\n                ...data,\n                moban: htmlMoban,\n                categoryHtml: isFirstPaperInCategory ? categoryHtml : \"\",\n                stats: stats // *** 关键修改：将 stats 传递给每一篇论文 ***\n            }\n        });\n\n        isFirstPaperInCategory = false; \n    }\n}\n\nreturn finalResults;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        368,
+        1344
+      ],
+      "id": "b84ae515-5963-4530-b0ea-4da7c81ecb10",
+      "name": "拆分每个论文2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst htmlList = [];\n\n// ================== 获取统计数据 ==================\nconst stats = items[0] && items[0].json.stats ? items[0].json.stats : { ai: 0, cv: 0, lg: 0, iv: 0 };\n\n// ================== 定义 HTML 模板 (强制样式) ==================\n\n// 1. 顶部大标题 (璇玑枢)\nconst topHeader = '<p style=\"font-size: 0px; line-height: 0; margin: 0px;\">&nbsp;</p><section style=\"text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px\"><h1 id=\"0\" style=\"text-align: center; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; display: table; padding: 0 1em; border-bottom: 2px solid #0F4C81; margin: 2em auto 1em; color: #3f3f3f; font-weight: bold;margin-top: 0\" data-heading=\"true\"><strong style=\"text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: inherit; color: #0F4C81; font-weight: bold\">璇玑枢，助力学术成长，点亮科研之路</strong></h1></section>';\n\n// 2. 统计数据标题 (带数字)\nconst summaryHeader = `<p style=\"font-size: 0px; line-height: 0; margin: 0px;\">&nbsp;</p><section style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px\"><h2 id=\"0\" style=\" text-align: center; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 19.2px; display: table; padding: 0 0.2em; margin: 4em auto 1em; color: #fff; background: #0F4C81; font-weight: bold;margin-top: 0\" data-heading=\"true\">今日论文合集：cs.HC人机交互${stats.hc}篇，cs.RO机器人技术${stats.ro}篇，q-bio.NC神经元和认知${stats.nc}篇</h2></section>`;\nconst profileHtml = `<section class=\"mp_profile_iframe_wrp\" nodeleaf=\"\">\n  <mp-common-profile class=\"js_uneditable custom_select_card mp_profile_iframe\"\n    data-pluginname=\"mpprofile\"\n    data-nickname=\"璇玑枢\"\n    data-alias=\"mizhiNo1\"\n    data-from=\"0\"\n    data-headimg=\"http://mmbiz.qpic.cn/mmbiz_png/pdoYWlyPiaWFPmEWuRgRQVk08RkmAVKAxKSLHkiakfKDSScOp0iaH99L3NRvcicuVK6mtTibD9GNiaG5fFFCx956PZOA/0?wx_fmt=png\"\n    data-signature=\"最干货、暖心、有用的研究生学习类公众号，提供求学期间的经验分享、学习资源、生活分享，旨在帮助读研学生解疑答惑和真正提升自我！\"\n    data-id=\"MzU5MTU5NTI3MQ==\"\n    data-is_biz_ban=\"0\"\n    data-service_type=\"1\"\n    data-verify_status=\"0\">\n  </mp-common-profile>\n</section>\n<section><span leaf=\"\"><br></span></section>`;\n// 3. 详情链接部分 (已修复 \\n 显示问题)\nconst linkSection = '<section style=\"text-align: center; margin: 0 auto 30px; line-height: 1.6; font-family: -apple-system-font,BlinkMacSystemFont, Arial,sans-serif; font-size: 15px;\"><span style=\"color: #555;\">本文只展示部分论文，全部详情，AI总结请访问，或点击阅读原文</span><br><a href=\"https://scouthe.github.io/arxiv_crawler_ai_enhanced/\" style=\"color: #0F4C81; text-decoration: underline; font-weight: bold; word-break: break-all;\">https://scouthe.github.io/arxiv_crawler_ai_enhanced/</a></section><p style=\"font-size: 0px; line-height: 0; margin: 0px;\">&nbsp;</p>';\n\n// 4. 底部提示\nconst bottomFooter = '<p style=\"text-align: center; color: #888; font-size: 14px; margin-top: 20px;\">机器翻译由谷歌翻译提供，仅供参考</p><p style=\"text-align: center; color: #888; font-size: 14px; margin-top: 20px;\">点击阅读原文看详细论文内容，AI总结</p>';\n\n// 5. *** 核心文章模板 (强制 3 行样式) ***\n// 这里使用 <div> 标签将 作者、中文摘要、英文摘要 强制分行\nconst articleTemplate = `<section style=\"text-align: left;line-height: 1.75;font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif;font-size: 16px;\"> <p style=\"margin: 0px;padding: 0px;box-sizing: border-box !important;overflow-wrap: break-word !important;color: black;font-size: 14px;text-align: left;visibility: visible;\"> <span style=\"box-sizing: border-box !important;overflow-wrap: break-word !important;visibility: visible;\">{{ENGLISH_TITLE}}</span> </p> <div style=\"margin-top: 5px; margin-left: 0px; color: #3f3f3f;\"> <div style=\"margin-bottom: 3px;\"> <strong style=\"color: #0F4C81; font-weight: bold;\">标题</strong> <span>: {{CHINESE_TITLE}}</span> </div> <div style=\"margin-bottom: 3px;\"> <strong style=\"color: #0F4C81; font-weight: bold;\">链接</strong> <span>: {{ARXIV_LINK}}</span> </div> </div> </section> <section style=\"margin: 5px auto;padding: 0.5em;box-sizing: border-box;overflow-wrap: break-word !important;font-family: &quot;PingFang SC&quot;, system-ui, -apple-system, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif;font-style: normal;font-weight: 400;background: rgb(240, 240, 240);color: rgb(102, 101, 101);font-size: 14px;line-height: 1.3em;text-align: left;height: 12em;overflow: auto;\"> <div style=\"margin-bottom: 5px;\"><span style=\"font-size: 12px;color:#0F4C81;\"><b>作者</b>：{{AUTHORS}}</span></div> <div style=\"margin-bottom: 5px;\"><span style=\"font-size: 13px;color:#0F4C81;\"><b>摘要</b>：{{CHINESE_ABSTRACT}}</span></div> <div><span style=\"font-size: 13px;color:#0F4C81;\"><b>Abstract</b>：{{ENGLISH_ABSTRACT}}</span></div> </section> <p style=\"font-size: 0px;line-height: 0;margin: 0px;\">&nbsp;</p>`;\n\n// =================================================\nconst imageUrl = \"http://mmbiz.qpic.cn/mmbiz_png/pdoYWlyPiaWE88Y687KoLpQPXSw646ISBHAUmLDZ1Hk9YxnuC551yF9ibpLiaLK4NyqNO15icJvZdsic5HqMUNJQwNg/0?wx_fmt=png\";\nconst imageHtml = `<p style=\"text-align: center; margin-top: 20px;\"><img src=\"${imageUrl}\" style=\"max-width: 100%; height: auto;\"/></p>`;\n// 遍历每一篇论文\nfor (const item of items) {\n  const data = item.json;\n  \n  // 获取该论文携带的分类标题 HTML (如果有)\n  const currentCategoryHeader = data.categoryHtml || \"\";\n\n  // 使用我们刚定义的 articleTemplate，不再依赖 data.moban\n  let finalHtml = articleTemplate;\n  \n  finalHtml = finalHtml.replace(/{{ENGLISH_TITLE}}/g, data.englishTitle || \"\");\n  finalHtml = finalHtml.replace(/{{CHINESE_TITLE}}/g, data.chineseTitle || \"\");\n  finalHtml = finalHtml.replace(/{{ARXIV_LINK}}/g, data.arxivLink || \"\");\n  finalHtml = finalHtml.replace(/{{AUTHORS}}/g, data.authors || \"\");\n  finalHtml = finalHtml.replace(/{{NOTES}}/g, data.notes || \"No Notes\");\n  finalHtml = finalHtml.replace(/{{CHINESE_ABSTRACT}}/g, data.chineseAbstract || \"\");\n  finalHtml = finalHtml.replace(/{{ENGLISH_ABSTRACT}}/g, data.englishAbstract || \"\");\n\n  htmlList.push(currentCategoryHeader + finalHtml.trim());\n}\n\nconst mergedBody = htmlList.join(\"<br/>\");\n\n// 6. 最终拼接\nconst finalOutput = topHeader + summaryHeader+profileHtml + linkSection + mergedBody+imageHtml + bottomFooter;\n\nreturn [{ json: { htmlOutput: finalOutput } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        1344
+      ],
+      "id": "aebb1851-c409-4a97-96ef-50edb8e811b9",
+      "name": "填充模板并合并2"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. 获取上一步生成的 HTML 内容\nconst htmlContent = $input.first().json.htmlOutput;\n\n// 2. 生成标题 (例如: Arxiv论文速递 2025-12-03)\n// 获取当前日期\nconst date = new Date();\nconst year = date.getFullYear();\nconst month = String(date.getMonth() + 1).padStart(2, '0');\nconst day = String(date.getDate()).padStart(2, '0');\nconst dateStr = `${year}-${month}-${day}`;\n\nconst title = `人机交互，机器人技术论文速递--(${dateStr})`;\nconst digest = `今日最新 Arxiv 论文摘要汇总 (${dateStr})`;\n\n// 3. 构建微信文章对象\nconst articles = [\n    {\n        title: title,\n        author: 'tianhe',\n        digest: digest,\n        show_cover_pic: 1,\n        content: htmlContent,\n        content_source_url: 'https://scouthe.github.io/arxiv_crawler_ai_enhanced/',\n        // *** 注意 ***: 这里的 thumb_media_id 必须是你微信公众号后台素材库里的一张【永久图片素材】的 ID\n        // 如果 ID 错误或过期，会导致报错 \"media_id invalid\"\n        thumb_media_id: 'H1msZTrDz2EEoa3-9SwY7tpx7hIOh8ylNs2mMIxat-cEjqnIqEsEpP6snBAnufuL',  \n      need_open_comment:1,\n    }\n];\n\nreturn { articles };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        768,
+        1344
+      ],
+      "id": "f2346b78-ea64-419a-be55-98ea8f266861",
+      "name": "Code (文章数据处理)2"
+    },
+    {
+      "parameters": {
+        "content": "人工智能(cs.AI:Artificial Intelligence)\",\n    \"计算机视觉和模式识别(cs.CV:Computer Vision and Pattern Recognition)\",\n  \"机器学习(cs.LG:Machine Learning)\",\n  \"图像和视频处理(eess.IV:Image and Video Processing)\"",
+        "height": 96,
+        "width": 608
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        96,
+        736
+      ],
+      "id": "95e8b080-30be-47dd-8bf4-17d21db947ac",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "\"声音(cs.SD:Sound)\",\n\"音频和语音处理(eess.AS:Audio and Speech Processing)\"",
+        "height": 80,
+        "width": 432
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        112,
+        992
+      ],
+      "id": "cd721eed-626e-4f01-8e53-44d44d9ab38e",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "\"人机交互(cs.HC:Human-Computer Interaction)\",\n\"机器人技术(cs.RO:Robotics)\",\n\"神经元和认知(q-bio.NC:Neurons and Cognition)\"",
+        "height": 80,
+        "width": 432
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        128,
+        1232
+      ],
+      "id": "3c8866ee-61bc-4d4f-a9d4-490822644146",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1,
+                2,
+                3,
+                4,
+                5
+              ],
+              "triggerAtHour": 10
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -1632,
+        656
+      ],
+      "id": "04593908-d1f5-4604-ae5f-012df205c2cd",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "numberInputs": 4
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1424,
+        672
+      ],
+      "id": "1d83b8ab-139c-4798-85f0-af66eb03f8f5",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 获取前面所有节点汇聚过来的数据\nconst items = $input.all();\n\nlet allArticles = [];\n\n// 遍历每一个输入项（即每一篇单独的文章）\nfor (const item of items) {\n  const articleData = item.json.articles;\n  \n  if (articleData && Array.isArray(articleData)) {\n    // 将文章对象加入总列表\n    // 你的前序节点输出的是 [{title: ...}]，我们需要把里面的对象取出来放进大数组\n    allArticles = allArticles.concat(articleData);\n  }\n}\n\n// 微信限制一次最多8条图文，这里做一个安全截取\n// 如果超过8条，微信接口会报错\nif (allArticles.length > 8) {\n  allArticles = allArticles.slice(0, 8);\n}\n\n// 输出符合微信 draft_add 接口要求的格式\n// 最终结构: { \"articles\": [ {文章1}, {文章2}, {文章3}, {文章4} ] }\nreturn {\n  articles: allArticles\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1632,
+        704
+      ],
+      "id": "e15e0df2-c39a-4eb3-8fd2-49fbd84af020",
+      "name": "Code (合并所有文章)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://crawler-api:8000/run-git-sync",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2176,
+        704
+      ],
+      "id": "2976e165-55bf-4084-b821-acd921ef2c72",
+      "name": "更新远程git"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://crawler-api:8000/ai-enhance-only",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "date_set",
+              "value": "={{ $now.toFormat('yyyy-MM-dd') }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 90000000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2016,
+        704
+      ],
+      "id": "459bc243-6032-496c-b572-59af3ab26343",
+      "name": "对论文进行ai增强"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ \n$binary.data.fileSize.toUpperCase().includes('MB') || \n$binary.data.fileSize.toUpperCase().includes('GB') ? true : \n($binary.data.fileSize.toUpperCase().includes('KB') ? parseFloat($binary.data.fileSize) > 5 : parseFloat($binary.data.fileSize) > 5120) \n}}",
+              "operation": "equal",
+              "value2": "={{true}}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -832,
+        864
+      ],
+      "id": "caf67897-6542-4422-b49b-59ce34caefa2",
+      "name": "检查文件是否有内容"
+    },
+    {
+      "parameters": {
+        "amount": 30,
+        "unit": "minutes"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        -832,
+        1088
+      ],
+      "id": "c472bd23-6bd5-4d63-aa40-b7a23b731917",
+      "name": "等待30分钟",
+      "webhookId": "dafa3b4d-c07a-41f0-a88a-b26436d30fd2"
+    },
+    {
+      "parameters": {
+        "fileSelector": "=/home/node/.n8n-files/crawler_output/markdown/{{ $now.toFormat('yyyy-MM-dd') }}.md",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        -1040,
+        864
+      ],
+      "id": "b49836ff-f0dc-461d-8205-b6004ead4832",
+      "name": "读取本地MD文件1",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://crawler-api:8000/crawl-only",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "date_set",
+              "value": "={{ $now.toFormat('yyyy-MM-dd') }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 9000000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -1264,
+        864
+      ],
+      "id": "9e8502f2-ad7f-4635-95cf-162cee89faf2",
+      "name": "爬取论文1"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1664,
+        400
+      ],
+      "id": "66ca495b-a73e-4b40-9a2a-b4a6e0757501",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "resource": "media",
+        "operation": "media:uploadOther"
+      },
+      "type": "n8n-nodes-wechat-offiaccount.wechatOfficialAccountNode",
+      "typeVersion": 1,
+      "position": [
+        -960,
+        -112
+      ],
+      "id": "6ea54323-abeb-4a0e-a051-abaeb97ae287",
+      "name": "上传永久素材2",
+      "credentials": {
+        "wechatOfficialAccountCredentialsApi": {
+          "id": "DzYWBIn3p7WqiN7j",
+          "name": "Wechat Official Account Credentials account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fileSelector": "=/home/node/.n8n-files/期刊介绍/{{ $now.toFormat('yyyy-MM-dd') }}/*.md",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        -624,
+        -112
+      ],
+      "id": "1908562f-4fda-411c-a2c2-27926c962e74",
+      "name": "Read/Write Files from Disk4",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "text",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -400,
+        -112
+      ],
+      "id": "763eaf7b-d20f-4c24-bad5-5e7c521fa9d6",
+      "name": "Extract from File2"
+    },
+    {
+      "parameters": {
+        "fileSelector": "=/home/node/.n8n-files/期刊介绍/{{ $now.toFormat('yyyy-MM-dd') }}/*.png",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        -1120,
+        -112
+      ],
+      "id": "8f2a7f65-323b-42de-870f-7e34cecd6b60",
+      "name": "Read/Write Files from Disk5",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "raw_content",
+              "value": "={{ $json.data }}"
+            },
+            {
+              "name": "moban",
+              "value": "<p style=\"font-size: 0px; line-height: 0; margin: 0px;\">&nbsp;</p><section style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px\"><h1 id=\"0\" style=\" text-align: center; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 19.2px; display: table; padding: 0 1em; border-bottom: 2px solid #0F4C81; margin: 2em auto 1em; color: #3f3f3f; font-weight: bold;margin-top: 0\" data-heading=\"true\"><strong style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: inherit; color: #0F4C81; font-weight: bold\">璇玑枢，助力学术成长，点亮科研之路</strong></h1><figure style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; margin: 1.5em 8px; color: #3f3f3f\"><img alt=\"alt text\" title=\"null\" src=\"image.png\" style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; display: block; max-width: 100%; margin: 0.1em auto 0.5em; border-radius: 4px\"><figcaption style=\" text-align: center; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 0.8em; color: #888\">alt text</figcaption></figure><br>IEEE Transactions on Intelligent Transportation Systems（以下简称 <strong style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: inherit; color: #0F4C81; font-weight: bold\">T-ITS</strong>）由 IEEE 主办，是智能交通系统（Intelligent Transportation Systems, ITS）领域最具国际影响力的顶级期刊之一。T-ITS 长期聚焦现代交通系统中<strong style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: inherit; color: #0F4C81; font-weight: bold\">感知／通信／控制／规划／设计与实施</strong>等方面的基础与应用研究，涵盖从理论建模、仿真分析、系统设计与优化，到实验与工程实现的全过程，非常适合发表交通系统智能化、车路协同、多模态交通管理、自动驾驶、交通信息系统等前沿研究成果。公开数据显示，T-ITS 在交通工程、计算机应用与电子电气工程等领域具有极高国际学术影响力，是计算机科学领域内的<strong style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: inherit; color: #0F4C81; font-weight: bold\">中科院 2 区 Top、JCR Q1</strong>期刊。<br><figure style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; margin: 1.5em 8px; color: #3f3f3f\"><img alt=\"alt text\" title=\"null\" src=\"image-1.png\" style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; display: block; max-width: 100%; margin: 0.1em auto 0.5em; border-radius: 4px\"><figcaption style=\" text-align: center; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 0.8em; color: #888\">alt text</figcaption></figure><p style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; margin: 1.5em 8px; letter-spacing: 0.1em; color: #3f3f3f\">期刊官方网站：https://ieeexplore.ieee.org/xpl/RecentIssue.jsp?punumber=6979</p><h2 id=\"1\" style=\" text-align: center; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 19.2px; display: table; padding: 0 0.2em; margin: 4em auto 2em; color: #fff; background: #0F4C81; font-weight: bold\" data-heading=\"true\">征稿范围</h2><p style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; margin: 1.5em 8px; letter-spacing: 0.1em; color: #3f3f3f\">T-ITS 长期关注交通系统智能化、信息化与系统工程多个方面的高水平原创研究，强调 <strong style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: inherit; color: #0F4C81; font-weight: bold\">理论／方法创新 + 系统设计或工程实现 + 实验／仿真实证</strong> 的紧密结合，涵盖以下方向：</p><p style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; margin: 1.5em 8px; letter-spacing: 0.1em; color: #3f3f3f\"><strong style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: inherit; color: #0F4C81; font-weight: bold\">一、智能交通系统理论与方法</strong></p><ul style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; list-style: circle; padding-left: 1em; margin-left: 0; color: #3f3f3f\"><li style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; text-indent: -1em; display: block; margin: 0.2em 8px; color: #3f3f3f\">• 交通系统建模、交通流仿真与分析</li><li style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; text-indent: -1em; display: block; margin: 0.2em 8px; color: #3f3f3f\">• 多模态交通系统设计与优化</li><li style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; text-indent: -1em; display: block; margin: 0.2em 8px; color: #3f3f3f\">• 车–路–人协同 / 多主体交互系统</li></ul><p style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; margin: 1.5em 8px; letter-spacing: 0.1em; color: #3f3f3f\"><strong style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: inherit; color: #0F4C81; font-weight: bold\">二、传感与通信技术在交通系统中的应用</strong></p><ul style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; list-style: circle; padding-left: 1em; margin-left: 0; color: #3f3f3f\"><li style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; text-indent: -1em; display: block; margin: 0.2em 8px; color: #3f3f3f\">• 车辆通信 (V2X)、车联网 (VANET / C–V2X)</li><li style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; text-indent: -1em; display: block; margin: 0.2em 8px; color: #3f3f3f\">• 交通基础设施智能感知与信息系统</li><li style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; text-indent: -1em; display: block; margin: 0.2em 8px; color: #3f3f3f\">• 交通数据采集、传输与融合</li></ul><p style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; margin: 1.5em 8px; letter-spacing: 0.1em; color: #3f3f3f\"><strong style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: inherit; color: #0F4C81; font-weight: bold\">三、自动驾驶 / 智能驾驶辅助系统与控制算法</strong></p><ul style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; list-style: circle; padding-left: 1em; margin-left: 0; color: #3f3f3f\"><li style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; text-indent: -1em; display: block; margin: 0.2em 8px; color: #3f3f3f\">• 自动驾驶车辆路径规划、控制与协调</li><li style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; text-indent: -1em; display: block; margin: 0.2em 8px; color: #3f3f3f\">• 高级驾驶辅助系统 (ADAS)</li><li style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; text-indent: -1em; display: block; margin: 0.2em 8px; color: #3f3f3f\">• 多车协同行为 / 编队 / 列控 / 车路协同控制</li></ul><p style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; margin: 1.5em 8px; letter-spacing: 0.1em; color: #3f3f3f\"><strong style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: inherit; color: #0F4C81; font-weight: bold\">四、交通管理、调度与决策系统</strong></p><ul style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; list-style: circle; padding-left: 1em; margin-left: 0; color: #3f3f3f\"><li style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; text-indent: -1em; display: block; margin: 0.2em 8px; color: #3f3f3f\">• 智能交通信号控制 / 优化</li><li style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; text-indent: -1em; display: block; margin: 0.2em 8px; color: #3f3f3f\">• 交通拥堵预测、流量预测与实时管理</li><li style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; text-indent: -1em; display: block; margin: 0.2em 8px; color: #3f3f3f\">• 城市交通规划与多模式出行系统优化</li></ul><p style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; margin: 1.5em 8px; letter-spacing: 0.1em; color: #3f3f3f\"><strong style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: inherit; color: #0F4C81; font-weight: bold\">五、交通安全、可靠性、与系统评估</strong></p><ul style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; list-style: circle; padding-left: 1em; margin-left: 0; color: #3f3f3f\"><li style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; text-indent: -1em; display: block; margin: 0.2em 8px; color: #3f3f3f\">• 道路安全分析、事故预测与预防</li><li style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; text-indent: -1em; display: block; margin: 0.2em 8px; color: #3f3f3f\">• 系统可靠性、容错与鲁棒设计</li><li style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; text-indent: -1em; display: block; margin: 0.2em 8px; color: #3f3f3f\">• 仿真与现实交通系统评估</li></ul><p style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; margin: 1.5em 8px; letter-spacing: 0.1em; color: #3f3f3f\">T-ITS 鼓励理论研究与工程实现并重，特别欢迎在自动驾驶、车联网、多模态交通系统、交通管理系统、交通安全、智能调度等具有工程落地价值的方向投稿。</p><h2 id=\"2\" style=\" text-align: center; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 19.2px; display: table; padding: 0 0.2em; margin: 4em auto 2em; color: #fff; background: #0F4C81; font-weight: bold\" data-heading=\"true\">T-ITS 近期影响力与学术地位</h2><ul style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; list-style: circle; padding-left: 1em; margin-left: 0; color: #3f3f3f\"><li style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; text-indent: -1em; display: block; margin: 0.2em 8px; color: #3f3f3f\">• <strong style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: inherit; color: #0F4C81; font-weight: bold\">影响因子 (JCR)</strong>：2024 年为 <strong style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: inherit; color: #0F4C81; font-weight: bold\">8.4</strong>。</li><li style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; text-indent: -1em; display: block; margin: 0.2em 8px; color: #3f3f3f\">• <strong style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: inherit; color: #0F4C81; font-weight: bold\">分区 / 排名</strong>：在 JCR 所属学科中 (如 Engineering, Civil; Engineering, Electrical &amp; Electronic; Transportation Science &amp; Technology) 均为 <strong style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: inherit; color: #0F4C81; font-weight: bold\">Q1</strong> 区。例如在 Civil 工程类中排名 5/181，百分位约 97.5% 。</li><li style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; text-indent: -1em; display: block; margin: 0.2em 8px; color: #3f3f3f\">• <strong style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: inherit; color: #0F4C81; font-weight: bold\">学术覆盖领域广、跨学科交叉</strong>：T-ITS 同时涵盖交通工程、电子通信、计算机应用等多个领域，适合多学科背景研究者投稿。</li><li style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; text-indent: -1em; display: block; margin: 0.2em 8px; color: #3f3f3f\">• <strong style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: inherit; color: #0F4C81; font-weight: bold\">工程与应用导向强</strong>：其刊载论文往往不仅有理论或算法创新，还有交通系统仿真／真实系统实验／工程实现／控制与通信系统部署，兼具学术与工程价值。</li></ul>因此，T-ITS 是智能交通、车联网、自动驾驶、多模态交通系统与交通管理系统等领域研究者的重要国际学术平台。<br><figure style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; margin: 1.5em 8px; color: #3f3f3f\"><img alt=\"alt text\" title=\"null\" src=\"image-2.png\" style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; display: block; max-width: 100%; margin: 0.1em auto 0.5em; border-radius: 4px\"><figcaption style=\" text-align: center; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 0.8em; color: #888\">alt text</figcaption></figure><h2 id=\"3\" style=\" text-align: center; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 19.2px; display: table; padding: 0 0.2em; margin: 4em auto 2em; color: #fff; background: #0F4C81; font-weight: bold\" data-heading=\"true\">发文情况</h2>2024年年发文量 1400 篇，期刊近年来发文数量比较大，录用机会很多。<br><figure style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; margin: 1.5em 8px; color: #3f3f3f\"><img alt=\"alt text\" title=\"null\" src=\"image-3.png\" style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; display: block; max-width: 100%; margin: 0.1em auto 0.5em; border-radius: 4px\"><figcaption style=\" text-align: center; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 0.8em; color: #888\">alt text</figcaption></figure><h2 id=\"4\" style=\" text-align: center; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 19.2px; display: table; padding: 0 0.2em; margin: 4em auto 2em; color: #fff; background: #0F4C81; font-weight: bold\" data-heading=\"true\">投稿／审稿指南建议</h2><ul style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; list-style: circle; padding-left: 1em; margin-left: 0; color: #3f3f3f\"><li style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; text-indent: -1em; display: block; margin: 0.2em 8px; color: #3f3f3f\">• 格式规范：建议严格遵守 IEEE Transactions 系列期刊统一的论文模板 (LaTeX / Word)，包括文档结构、参考文献格式、图表排版等要求。</li><li style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; text-indent: -1em; display: block; margin: 0.2em 8px; color: #3f3f3f\">• 内容要求：强调<strong style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: inherit; color: #0F4C81; font-weight: bold\">理论或方法上的创新性 + 系统设计或交通工程应用 + 足够的实验／仿真或实际系统验证</strong>。仅有算法模拟、不结合交通系统背景或缺乏应用／工程实现的论文，通过初审可能较难。</li><li style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; text-indent: -1em; display: block; margin: 0.2em 8px; color: #3f3f3f\">• 原创性与规范性：须保证论文原创性 (建议避免过高重复率 / 非原创内容)，严禁一稿多投。若包含仿真、系统部署、车联网/通信协议设计、交通数据处理等工程内容，应说明数据来源、系统设置、实验环境／仿真参数、评估指标等。</li><li style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; text-indent: -1em; display: block; margin: 0.2em 8px; color: #3f3f3f\">• 实用性与工程价值：欢迎那些既有理论／方法创新，又有交通系统应用背景 (如智能交通管理、自动驾驶、交通数据分析、车路协同仿真/部署等) 的研究。</li></ul><h2 id=\"5\" style=\" text-align: center; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 19.2px; display: table; padding: 0 0.2em; margin: 4em auto 2em; color: #fff; background: #0F4C81; font-weight: bold\" data-heading=\"true\">期刊总结</h2><p style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; margin: 1.5em 8px; letter-spacing: 0.1em; color: #3f3f3f\">总体而言，IEEE Transactions on Intelligent Transportation Systems (T-ITS) 凭借其 <strong style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: inherit; color: #0F4C81; font-weight: bold\">较高影响因子、跨学科覆盖、理论与工程并重、系统设计与交通应用紧密结合</strong> 的特点，已成为智能交通、车联网、交通系统分析与优化、自动驾驶与多模态交通系统研究领域的国际顶级期刊。对于从事交通系统建模、车联网通信、自动驾驶控制、多模态交通系统设计、交通管理／调度／优化、交通安全分析等课题的研究者而言，T-ITS 是极具权威性与应用价值的优选发表平台。</p><p style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; margin: 1.5em 8px; letter-spacing: 0.1em; color: #3f3f3f\">掌握期刊特点，遵循投稿规范。<br>**璇玑枢，我以渺小，与你同行——相信您也能在这片学术星空下留下自己的光彩。</p><p style=\" text-align: left; line-height: 1.75; font-family: -apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif; font-size: 16px; margin: 1.5em 8px; letter-spacing: 0.1em; color: #3f3f3f\">更多信息，欢迎加入我们的投稿交流群，参与模板下载、cover letter 撰写、审稿意见回复等经验分享，后台回复：期刊投稿交流群。</p>                                    </section><p style=\"font-size: 0px; line-height: 0; margin: 0px;\">&nbsp;</p>"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [
+        16,
+        -112
+      ],
+      "id": "e752d7dc-9908-436e-b410-21b2a1d5fbf6",
+      "name": "设置文章数据2"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 获取所有上传成功的图片信息\nconst items = $input.all();\n\n// 提取所有的 url 放入一个数组\n// 微信上传接口通常会返回 'url' 字段，这是可以在文章正文中显示的链接\nconst imageUrls = items.map(item => item.json.url);\n\n// 为了保险，我们把 media_id 也存着，万一你要做封面图用\nconst mediaIds = items.map(item => item.json.media_id);\n\nreturn {\n  cover_images_urls: imageUrls,\n  cover_images_ids: mediaIds\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -816,
+        -112
+      ],
+      "id": "05308938-59c7-4f6a-ab36-0d09fae1be9f",
+      "name": "Code (整理图片ID)2"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// 1. 获取上一步整理好的图片 URL 列表\n// ============================================================\nlet imageUrls = [];\ntry {\n    // 注意：这里我们需要的是 'url' (用于正文显示)，不是 'media_id' (用于封面)\n    // 请确保前置节点 \"Code (整理图片ID)\" 输出的字段名是 cover_images_urls\n    imageUrls = $('Code (整理图片ID)2').first().json.cover_images_urls;\n} catch (error) {\n    console.log(\"无法获取图片URL列表，请检查节点名称或连接顺序\");\n}\n\n// 定义一个全局索引，用于给多篇文章按顺序分配图片\nlet imgIndex = 0;\n\nfor (const item of items) {\n    // 获取原始文章内容\n    let articleText = item.json.data; \n\n    if (articleText) {\n        // ============================================================\n        // 【原有功能】：去除标题中的 Markdown 粗体标记\n        // ============================================================\n        // 优化：增加了末尾的 \\s*，防止因为标题后面有空格导致匹配失败\n        articleText = articleText.replace(/^(#+)\\s*\\*\\*(.*?)\\*\\*\\s*$/gm, '$1 $2');\n\n\n        // ============================================================\n        // 【修改功能】：图片 URL 动态替换\n        // ============================================================\n        const imageRegex = /!\\[[^\\]]*\\]\\([^\\)]*\\)/g;\n        \n        // 使用回调函数，按顺序从列表中取出 URL 填入\n        const replacedText = articleText.replace(imageRegex, (match) => {\n            if (imageUrls && imgIndex < imageUrls.length) {\n                const currentUrl = imageUrls[imgIndex];\n                imgIndex++; \n                \n                // 返回标准的 Markdown 图片语法，但链接换成了微信的 URL\n                return `![](${currentUrl})`;\n            } else {\n                // 如果图片不够了，返回空字符串删除该图片占位符\n                return '';\n            }\n        });\n\n        // 将处理后的文本更新回 data，确保后续节点使用的是替换后的内容\n        item.json.data = replacedText;\n        // 保留你原本的输出字段习惯\n        item.json.processedText = replacedText;\n        \n    } else {\n        console.warn(\"未找到文章正文 (data)，跳过替换。\");\n    }\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -192,
+        -112
+      ],
+      "id": "49898861-c1a9-444b-83d2-fbdf3a7f4624",
+      "name": "Code (Markdown替换)2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n// 定义核心样式变量\nconst fontStyle = \"-apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif\";\nconst defaultPStyle = `text-align: left; line-height: 1.75; font-family: ${fontStyle}; font-size: 16px; margin: 1.5em 8px; letter-spacing: 0.1em; color: #3f3f3f`;\nconst h1Color = '#0F4C81'; // 主要蓝色\n\nlet outputItems = [];\nlet headingId = 0; \n\n// 公众号关注卡片 HTML\nconst profileHtml = `<section class=\"mp_profile_iframe_wrp\" nodeleaf=\"\">\n  <mp-common-profile class=\"js_uneditable custom_select_card mp_profile_iframe\"\n    data-pluginname=\"mpprofile\"\n    data-nickname=\"璇玑枢\"\n    data-alias=\"mizhiNo1\"\n    data-from=\"0\"\n    data-headimg=\"http://mmbiz.qpic.cn/mmbiz_png/pdoYWlyPiaWFPmEWuRgRQVk08RkmAVKAxKSLHkiakfKDSScOp0iaH99L3NRvcicuVK6mtTibD9GNiaG5fFFCx956PZOA/0?wx_fmt=png\"\n    data-signature=\"最干货、暖心、有用的研究生学习类公众号，提供求学期间的经验分享、学习资源、生活分享，旨在帮助读研学生解疑答惑和真正提升自我！\"\n    data-id=\"MzU5MTU5NTI3MQ==\"\n    data-is_biz_ban=\"0\"\n    data-service_type=\"1\"\n    data-verify_status=\"0\">\n  </mp-common-profile>\n</section>\n<section><span leaf=\"\"><br></span></section>`;\n\n\nfor (const item of items) {\n    let markdownText = item.json.raw_content || item.json.markdownText || item.json.text || '';\n    markdownText = markdownText.replace(/\\r\\n/g, '\\n');\n\n    // ============================================================\n    // 【修复点 1】：在处理任何 HTML 之前，先从文本中删掉重复的 Slogan\n    // 这样正文中就不会出现那行黑色的普通文字了\n    // ============================================================\n    markdownText = markdownText.replace(/^\\s*璇玑枢，助力学术成长，点亮科研之路\\s*$/gm, '');\n\n\n    // 变量：用于存储“原本的”文章标题（给封面用）\n    let realTitle = '';\n\n    // --- 1. 块级元素转换 ---\n\n    // A. 处理 H1 标题 (#) \n    // 逻辑：提取原标题存起来，但在正文中强制显示为 Slogan\n    markdownText = markdownText.replace(/^#\\s(.*?)$/gm, (match, content) => {\n        \n        // 如果是第一个 H1（即文章标题）\n        if (!realTitle) {\n            // 1. 存下真标题（例如“中科院1区...”），传给后面的节点做封面标题\n            realTitle = content.trim(); \n            \n            // 2. 定义强制显示的蓝色大标题内容\n            const sloganText = \"璇玑枢，助力学术成长，点亮科研之路\";\n            \n            // 3. 生成 HTML\n            const h1Content = `<strong style=\"text-align: left; line-height: 1.75; font-family: ${fontStyle}; font-size: inherit; color: ${h1Color}; font-weight: bold\">${sloganText}</strong>`;\n            const h1Html = `<h1 id=\"${headingId++}\" style=\"text-align: center; line-height: 1.75; font-family: ${fontStyle}; font-size: 19.2px; display: table; padding: 0 1em; border-bottom: 2px solid ${h1Color}; margin: 2em auto 1em; color: #3f3f3f; font-weight: bold;margin-top: 0\" data-heading=\"true\">${h1Content}</h1>`;\n            const heji='<section style=\"background:#f3f3f3;padding:18px 20px 14px 20px;margin:16px 0;\"><span leaf=\"\"><a class=\"normal_text_link\" target=\"_blank\" style=\"font-size: 20px;line-height: 1.6;color: rgb(17, 17, 17);font-weight: 600;text-decoration: none;display: inline-block;\" href=\"https://mp.weixin.qq.com/s?__biz=MzU5MTU5NTI3MQ==&amp;mid=2247486131&amp;idx=1&amp;sn=68a45957b64be87716f4275a3491ee4d&amp;scene=21#wechat_redirect\" textvalue=\"科研期刊分类合集（持续更新）\" data-itemshowtype=\"0\" linktype=\"text\" data-linktype=\"2\">科研期刊分类合集（持续更新）</a></span><section style=\"width:72px;height:3px;background:#2b6ff2;margin:10px 0 12px 0;\"><span leaf=\"\"><br></span></section><section style=\"font-size:14px;line-height:1.8;color:#9aa0a6;\"><span leaf=\"\">合集对已介绍的多本科研期刊按研究方向与期刊定位进行汇总与分类。</span></section></section>'\n            // 返回：Slogan HTML + 关注卡片\n            return h1Html + profileHtml+heji;\n        }\n\n        // 其他 H1 正常处理\n        const h1Content = `<strong style=\"text-align: left; line-height: 1.75; font-family: ${fontStyle}; font-size: inherit; color: ${h1Color}; font-weight: bold\">${content}</strong>`;\n        return `<h1 id=\"${headingId++}\" style=\"text-align: center; line-height: 1.75; font-family: ${fontStyle}; font-size: 19.2px; display: table; padding: 0 1em; border-bottom: 2px solid ${h1Color}; margin: 2em auto 1em; color: #3f3f3f; font-weight: bold;margin-top: 0\" data-heading=\"true\">${h1Content}</h1>`;\n    });\n\n    // B. 处理 H2 (##)\n    markdownText = markdownText.replace(/^##\\s(.*?)$/gm, (match, content) => {\n        const h2Html = `<h2 id=\"${headingId++}\" style=\"text-align: center; line-height: 1.75; font-family: ${fontStyle}; font-size: 19.2px; display: table; padding: 0 0.2em; margin: 4em auto 2em; color: #fff; background: ${h1Color}; font-weight: bold\" data-heading=\"true\">${content}</h2>`;\n        return h2Html;\n    });\n\n    // C. 处理 H3 (###)\n    markdownText = markdownText.replace(/^###\\s(.*?)$/gm, (match, content) => {\n        const h3Html = `<h3 id=\"${headingId++}\" style=\"text-align: left; line-height: 1.2; font-family: ${fontStyle}; font-size: 17.6px; padding-left: 8px; border-left: 3px solid ${h1Color}; margin: 2em 8px 0.75em 0; color: #3f3f3f; font-weight: bold\" data-heading=\"true\">${content}</h3>`;\n        return h3Html;\n    });\n    \n    // D. 图片\n    markdownText = markdownText.replace(/!\\[(.*?)\\]\\((.*?)\\)/g, (match, alt, src) => {\n        const figureStyle = `text-align: left; line-height: 1.75; font-family: ${fontStyle}; font-size: 16px; margin: 1.5em 8px; color: #3f3f3f`;\n        const imgStyle = `text-align: left; line-height: 1.75; font-family: ${fontStyle}; font-size: 16px; display: block; max-width: 100%; margin: 0.1em auto 0.5em; border-radius: 4px`;\n        const figcaptionStyle = `text-align: center; line-height: 1.75; font-family: ${fontStyle}; font-size: 0.8em; color: #888`;\n        return `<figure style=\"${figureStyle}\"><img alt=\"${alt}\" title=\"null\" src=\"${src}\" style=\"${imgStyle}\"><figcaption style=\"${figcaptionStyle}\">${alt}</figcaption></figure>`;\n    });\n\n    // E. 无序列表\n    const liStyle = `text-align: left; line-height: 1.75; font-family: ${fontStyle}; font-size: 16px; text-indent: -1em; display: block; margin: 0.2em 8px; color: #3f3f3f`;\n    const ulStyle = `text-align: left; line-height: 1.75; font-family: ${fontStyle}; font-size: 16px; list-style: circle; padding-left: 1em; margin-left: 0; color: #3f3f3f`;\n    markdownText = markdownText.replace(/(\\n(\\s*[\\*-]\\s.*))+/g, (match) => {\n        const lines = match.trim().split('\\n').filter(line => line.trim().startsWith('*') || line.trim().startsWith('-'));\n        if (lines.length > 0) {\n            let ulContent = '';\n            for (const line of lines) {\n                const content = line.replace(/^\\s*[\\*-]\\s/, '').trim();\n                ulContent += `<li style=\"${liStyle}\">• ${content}</li>`;\n            }\n            return `<ul style=\"${ulStyle}\">${ulContent}</ul>`;\n        }\n        return match;\n    });\n\n    // F. 有序列表\n    const olStyle = `text-align: left; line-height: 1.75; font-family: ${fontStyle}; font-size: 16px; padding-left: 1em; margin-left: 0; color: #3f3f3f`;\n    markdownText = markdownText.replace(/(\\n(\\s*\\d+\\.\\s.*))+/g, (match) => {\n        const lines = match.trim().split('\\n').filter(line => line.trim().match(/^\\d+\\.\\s/));\n        if (lines.length > 0) {\n            let olContent = '';\n            for (const line of lines) {\n                const numMatch = line.trim().match(/^(\\d+)\\.\\s/);\n                const number = numMatch ? numMatch[1] : '';\n                const content = line.replace(/^\\s*\\d+\\.\\s/, '').trim();\n                olContent += `<li style=\"${liStyle}\">${number}. ${content}</li>`;\n            }\n            return `<ol style=\"${olStyle}\">${olContent}</ol>`;\n        }\n        return match;\n    });\n    \n    // G. 粗体\n    const strongStyle = `text-align: left; line-height: 1.75; font-family: ${fontStyle}; font-size: inherit; color: ${h1Color}; font-weight: bold`;\n    markdownText = markdownText.replace(/\\*\\*(.*?)\\*\\*/g, (match, content) => {\n        return `<strong style=\"${strongStyle}\">${content}</strong>`;\n    });\n    \n    // H. 链接\n    markdownText = markdownText.replace(/\\[(.*?)\\]\\((.*?)\\)/g, (match, text, url) => url);\n    markdownText = markdownText.replace(/<(http|https):\\/\\/.*?>/g, (match) => match.replace(/<|>/g, ''));\n\n    // I. 段落\n    markdownText = markdownText.replace(/\\n{2,}/g, 'BLOCK_SEP');\n    markdownText = markdownText.replace(/\\n/g, ''); \n    markdownText = markdownText.replace(/BLOCK_SEP/g, '\\n\\n');\n\n    let finalHtml = markdownText.split(/\\n{2,}/) \n        .map(block => block.trim())\n        .filter(block => block.length > 0)\n        .map(block => {\n            if (block.startsWith('<h') || block.startsWith('<ul') || block.startsWith('<ol') || block.startsWith('<figure')) {\n                return block;\n            } else {\n                return `<p style=\"${defaultPStyle}\">${block}</p>`;\n            }\n        })\n        .join(''); \n\n    const finalSection = `<p style=\"font-size: 0px; line-height: 0; margin: 0px;\">&nbsp;</p><section style=\" text-align: left; line-height: 1.75; font-family: ${fontStyle}; font-size: 16px\">${finalHtml}</section><p style=\"font-size: 0px; line-height: 0; margin: 0px;\">&nbsp;</p>`;\n\n    outputItems.push({\n        json: {\n            output: finalSection,\n            // 关键：将提取到的真实标题传递给下一个节点\n            title: realTitle || '璇玑枢学术专递' \n        }\n    });\n}\n\nreturn outputItems;"
+      },
+      "id": "143bc75f-0ff3-4e38-a404-e9b5aaa24c29",
+      "name": "MD → WeChat HTML (Template Mapper)2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        192,
+        -112
+      ],
+      "notesInFlow": true,
+      "notes": "Input: json.raw_content (Markdown)\nOutput: json.output (WeChat-safe HTML)\nPlace after Set(设置文章数据) and before Code(文章数据处理)."
+    },
+    {
+      "parameters": {
+        "jsCode": "// *** 关键：确认您的 HTML 内容在 json.output 键中 ***\nconst ARTICLE_KEY = 'output'; \n\n// *** 修改点1：改为带索引的循环，以便判断是第几个输出 ***\nfor (let i = 0; i < items.length; i++) {\n    const item = items[i];\n    \n    // 1. 获取 HTML 内容\n    let htmlContent = item.json[ARTICLE_KEY];\n\n    if (!htmlContent) {\n        continue;\n    }\n    \n    // 确保内容是字符串\n    htmlContent = String(htmlContent);\n\n    // ========================================================\n    // *** 通用清理动作：对所有输出都执行 ***\n    // 防止任何一个输出末尾带有多余的引号\n    // ========================================================\n    htmlContent = htmlContent.trimRight();\n    if (htmlContent.endsWith('\"')) {\n        htmlContent = htmlContent.slice(0, -1);\n    }\n\n\n    // --- 任务 1 (已彻底移除错误代码) ---\n    // 原本这里的“璇玑枢”字体替换代码会导致格式错误，现已删除。\n    // 标题将直接使用上一节点生成的标准蓝色 H1 样式。\n\n\n    // --- 任务 2: 修改 \"期刊官网\" 等字号 ---\n    const targetTexts2 = [\n        \"期刊官网\",\n        \"期刊投稿网址\"\n    ];\n    const NEW_FONT_SIZE = 'font-size: 14px'; \n\n    targetTexts2.forEach(targetText => {\n        const regex2_v3 = new RegExp(\n            `(<p style=\"[^>]*?)` +\n            `(\\\\s*font-size:\\\\s*[^;\"]+;?\\\\s*)` + \n            `([^>]*?>)` + \n            `([^<]*?${targetText}.*?)(<\\\\/p>)`, 's'\n        );\n\n        htmlContent = htmlContent.replace(regex2_v3, (match, prefix, oldFontSizeGroup, suffix, content, closingTag) => {\n            const newFontSizeAttribute = oldFontSizeGroup.replace(/font-size:\\s*[^;\"]+/, NEW_FONT_SIZE);\n            return prefix + newFontSizeAttribute + suffix + content + closingTag;\n        });\n    });\n    \n    \n    // --- 任务 3: 移除 Markdown 粗体标记 ---\n    const oldTextFragment = \"**璇玑枢，我以渺小，与你同行——相信您也能在这片学术星空下留下自己的光彩。\";\n    const newTextFragment = \"璇玑枢，我以渺小，与你同行——相信您也能在这片学术星空下留下自己的光彩。\";\n    htmlContent = htmlContent.replace(oldTextFragment, newTextFragment);\n\n\n    // ========================================================\n    // --- 任务 4 (修改): 仅在第2个输出增加图片 ---\n    // 索引 i 从 0 开始，所以 i === 1 代表第二个输出\n    // ========================================================\n    \n    const imageUrl = \"http://mmbiz.qpic.cn/mmbiz_png/pdoYWlyPiaWE88Y687KoLpQPXSw646ISBHAUmLDZ1Hk9YxnuC551yF9ibpLiaLK4NyqNO15icJvZdsic5HqMUNJQwNg/0?wx_fmt=png\";\n    const imageHtml = `<p style=\"text-align: center; margin-top: 20px;\"><img src=\"${imageUrl}\" style=\"max-width: 100%; height: auto;\"/></p>`;\n        \n        htmlContent += imageHtml;\n    \n\n    // 2. 存储修改后的内容\n    item.json.output = htmlContent;\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        368,
+        -112
+      ],
+      "id": "e348b193-94e2-4e38-b6fd-5cbe78602b06",
+      "name": "Code in JavaScript2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = items[0]; \nconst content = item.json.output; \n\n// ============================================================\n// 1. 获取标题\n// ============================================================\n// 优先使用上游传过来的 extractedTitle，如果没有则使用默认\nlet title = item.json.title || '璇玑枢学术专递';\n\n// 【关键保护逻辑】：强制截断标题\n// 微信限制 64 字符。超过 60 字符时，截取前 60 个并加省略号。\nconst MAX_TITLE_LENGTH = 60;\n\nif (title.length > MAX_TITLE_LENGTH) {\n    title = title.slice(0, MAX_TITLE_LENGTH) + '...';\n}\n\n// ============================================================\n// 2. 设置摘要\n// ============================================================\nconst digest = '助力学术成长，点亮科研之路';\n\n// ============================================================\n// 3. 构建文章对象\n// ============================================================\nconst articles = [\n    {\n        title: title, \n        author: 'tianhe',\n        digest: digest,\n        show_cover_pic: 1,\n        content: content,\n        // 注意：这里引用的是 \"Code (整理图片ID)\"，请确保节点名称一致\n        thumb_media_id: $('Code (整理图片ID)2').first().json.cover_images_ids[4],  \n        need_open_comment: 1,\n    }\n];\n\nreturn [{ json: { articles } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        592,
+        -112
+      ],
+      "id": "bdf63581-03e1-4fa7-848a-16c68b4a4d0f",
+      "name": "Code (文章数据处理)5",
+      "notesInFlow": false,
+      "notes": "已修正：移除 AI 逻辑，直接使用提取的标题"
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "operation": "draft:add",
+        "articles": "={{ JSON.stringify($json.articles) }}"
+      },
+      "type": "n8n-nodes-wechat-offiaccount.wechatOfficialAccountNode",
+      "typeVersion": 1,
+      "position": [
+        1840,
+        704
+      ],
+      "id": "1bb2ddb6-c6eb-45b0-94e7-ae2c59052c73",
+      "name": "保存为草稿3",
+      "credentials": {
+        "wechatOfficialAccountCredentialsApi": {
+          "id": "DzYWBIn3p7WqiN7j",
+          "name": "Wechat Official Account Credentials account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "提取文件文本": {
+      "main": [
+        [
+          {
+            "node": "设置文章数据",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "筛选指定分类": {
+      "main": [
+        [
+          {
+            "node": "拆分每个论文",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "拆分每个论文": {
+      "main": [
+        [
+          {
+            "node": "填充模板并合并",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "填充模板并合并": {
+      "main": [
+        [
+          {
+            "node": "Code (文章数据处理)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "设置文章数据": {
+      "main": [
+        [
+          {
+            "node": "筛选指定分类",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "筛选指定分类1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "筛选指定分类2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code (文章数据处理)": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "筛选指定分类1": {
+      "main": [
+        [
+          {
+            "node": "拆分每个论文1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "拆分每个论文1": {
+      "main": [
+        [
+          {
+            "node": "填充模板并合并1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "填充模板并合并1": {
+      "main": [
+        [
+          {
+            "node": "Code (文章数据处理)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code (文章数据处理)1": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "筛选指定分类2": {
+      "main": [
+        [
+          {
+            "node": "拆分每个论文2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "拆分每个论文2": {
+      "main": [
+        [
+          {
+            "node": "填充模板并合并2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "填充模板并合并2": {
+      "main": [
+        [
+          {
+            "node": "Code (文章数据处理)2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code (文章数据处理)2": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "爬取论文1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read/Write Files from Disk5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Code (合并所有文章)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code (合并所有文章)": {
+      "main": [
+        [
+          {
+            "node": "保存为草稿3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "对论文进行ai增强": {
+      "main": [
+        [
+          {
+            "node": "更新远程git",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "检查文件是否有内容": {
+      "main": [
+        [
+          {
+            "node": "提取文件文本",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "等待30分钟",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "等待30分钟": {
+      "main": [
+        [
+          {
+            "node": "爬取论文1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "读取本地MD文件1": {
+      "main": [
+        [
+          {
+            "node": "检查文件是否有内容",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "爬取论文1": {
+      "main": [
+        [
+          {
+            "node": "读取本地MD文件1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "读取本地MD文件1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read/Write Files from Disk5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "上传永久素材2": {
+      "main": [
+        [
+          {
+            "node": "Code (整理图片ID)2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read/Write Files from Disk4": {
+      "main": [
+        [
+          {
+            "node": "Extract from File2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File2": {
+      "main": [
+        [
+          {
+            "node": "Code (Markdown替换)2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read/Write Files from Disk5": {
+      "main": [
+        [
+          {
+            "node": "上传永久素材2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "设置文章数据2": {
+      "main": [
+        [
+          {
+            "node": "MD → WeChat HTML (Template Mapper)2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code (整理图片ID)2": {
+      "main": [
+        [
+          {
+            "node": "Read/Write Files from Disk4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code (Markdown替换)2": {
+      "main": [
+        [
+          {
+            "node": "设置文章数据2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MD → WeChat HTML (Template Mapper)2": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript2": {
+      "main": [
+        [
+          {
+            "node": "Code (文章数据处理)5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code (文章数据处理)5": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "保存为草稿3": {
+      "main": [
+        [
+          {
+            "node": "对论文进行ai增强",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "088973a1-9ba9-4396-9b29-4644964a8488",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "be5d5c9aff97144097573319fc5491672ae86010b05c1c8b909abd5b64f280c7"
+  },
+  "id": "7XzDcdkNjF43NfYX",
+  "tags": []
+}

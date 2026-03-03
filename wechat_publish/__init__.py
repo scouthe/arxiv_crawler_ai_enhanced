@@ -1,0 +1,2 @@
+"""WeChat publish pipeline package."""
+

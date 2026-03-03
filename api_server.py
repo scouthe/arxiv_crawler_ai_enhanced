@@ -1,7 +1,5 @@
 import os
 import sys
-import shutil
-import subprocess
 import requests  # 新增
 import json
 from pathlib import Path
@@ -16,6 +14,8 @@ from dotenv import dotenv_values, set_key
 
 # 确保 run_crawler.py 在同一目录下
 from run_crawler import run_crawler, crawl_only, ai_enhance_only
+from git_sync import run_git_sync_internal
+from wechat_publish.service import run_wechat_publish_pipeline
 
 # 定义.env文件路径
 ENV_FILE_PATH = Path(".env")
@@ -48,6 +48,13 @@ class EnvVarUpdate(BaseModel):
 
 class SingleEnvVarUpdate(BaseModel):
     value: str
+
+
+class WechatPublishRequest(BaseModel):
+    date_set: Optional[str] = None
+    dry_run: bool = False
+    run_arxiv_module: bool = True
+    run_journal_module: bool = True
 
 # ================= 原有接口 =================
 
@@ -142,71 +149,20 @@ def update_single_env_var(var_name: str, env_update: SingleEnvVarUpdate):
 def run_git_sync():
     today_str = date.today().strftime("%Y-%m-%d")
     print(f"🚀 开始执行 Git 同步任务: {today_str}")
-    src_data = Path("/app/data")
-    src_assets = Path("/app/assets/file-list.txt")
-    git_repo = Path("/app/git_repo")
-    dest_data = git_repo / "data"
-    dest_assets = git_repo / "assets"
-    src_db = Path("/app/papers.db")          # 如果你的 DB 在 /app 根目录
+    return run_git_sync_internal(today_str=today_str)
 
-    dest_db = git_repo / "papers.db"
-    if src_db.exists():
-        shutil.copy2(src_db, dest_db)
-        print("✅ papers.db 已更新到 git_repo")
 
-    if src_assets.exists():
-        dest_assets.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src_assets, dest_assets / "file-list.txt")
-        print("✅ file-list.txt 已更新")
-
-    if src_data.exists():
-        dest_data.mkdir(parents=True, exist_ok=True)
-
-        # 全量同步 data 目录：新增/修改会复制，删除会在目标目录移除
-        src_rel_files = set()
-        for src_file in src_data.rglob("*"):
-            if src_file.is_file():
-                rel = src_file.relative_to(src_data)
-                src_rel_files.add(rel)
-                target_file = dest_data / rel
-                target_file.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(src_file, target_file)
-                print(f"✅ 已同步: data/{rel}")
-
-        # 清理目标目录中已经在源目录删除的文件，确保“全部更改”被推送
-        for dest_file in dest_data.rglob("*"):
-            if dest_file.is_file():
-                rel = dest_file.relative_to(dest_data)
-                if rel not in src_rel_files:
-                    dest_file.unlink()
-                    print(f"🗑️ 已删除: data/{rel}")
-
+@app.post("/wechat-publish")
+def wechat_publish(request: WechatPublishRequest):
     try:
-        subprocess.run(["git", "config", "--global", "--add", "safe.directory", "/app/git_repo"], check=True)
-        subprocess.run(["git", "config", "user.email", "bot@n8n.docker"], cwd=git_repo)
-        subprocess.run(["git", "config", "user.name", "ArxivBot"], cwd=git_repo)
-        subprocess.run(["git", "add", "."], cwd=git_repo, check=True)
-        status = subprocess.run(["git", "status", "--porcelain"], cwd=git_repo, capture_output=True, text=True)
-        if not status.stdout.strip():
-            return {"status": "skipped", "message": "没有文件变化，无需提交"}
-        subprocess.run(["git", "commit", "-m", f"Auto-update: {today_str}"], cwd=git_repo, check=True)
-        env_token = os.environ.get("GIT_TOKEN")
-        env_user = os.environ.get("GIT_USERNAME")
-        env_repo = os.environ.get("GIT_REPO_URL")
-        if env_token and env_repo:
-            clean_repo = env_repo.replace("https://", "")
-            auth_url = f"https://{env_user}:{env_token}@{clean_repo}"
-            print("📤 正在推送到远程仓库...")
-            subprocess.run(["git", "push", auth_url, "main"], cwd=git_repo, check=True)
-            return {"status": "success", "message": "Git Push 成功！"}
-        else:
-            return {"status": "warning", "message": "环境变量未配置 Token，仅完成本地提交"}
-    except subprocess.CalledProcessError as e:
-        print(f"❌ Git Error: {e}")
-        return {"status": "error", "message": str(e)}
+        return run_wechat_publish_pipeline(
+            date_set=request.date_set,
+            dry_run=request.dry_run,
+            run_arxiv_module=request.run_arxiv_module,
+            run_journal_module=request.run_journal_module,
+        )
     except Exception as e:
-        print(f"❌ Unknown Error: {e}")
-        return {"status": "error", "message": str(e)}
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ================= 新增 AI News 接口 (集成 ai-news.py) =================
 
