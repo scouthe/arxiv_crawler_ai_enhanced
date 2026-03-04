@@ -1,0 +1,1 @@
+add draft failed: {'errcode': 40007, 'errmsg': 'invalid media_id hint: [MHFgIA001466-0] rid: 69a7ce56-0ab05e76-38ecf550'}

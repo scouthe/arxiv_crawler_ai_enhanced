@@ -1,0 +1,55 @@
+{
+  "status": "success",
+  "date": "2026-03-04",
+  "articles_count": 4,
+  "draft_media_id": "H1msZTrDz2EEoa3-9SwY7r2g7sqkMCRQjg7UGtQi4NwxsdsVwbJfgh77mleUpPrG",
+  "article_titles": [
+    "中科院地球科学1区Top、遥感JCR Q1榜首：IEEE GRSM",
+    "人工智能，计算机视觉，机器学习， 图像和视频处理论文速递--(2026-03-04)",
+    "声音，音频和语音处理论文速递--(2026-03-04)",
+    "人机交互，机器人技术论文速递--(2026-03-04)"
+  ],
+  "diagnostics": {
+    "wechat_connectivity": {
+      "status": "ok"
+    },
+    "arxiv": {
+      "group_main": {
+        "stats": {
+          "ai": 114,
+          "cv": 267,
+          "lg": 116,
+          "iv": 3
+        },
+        "cards_after_filter": 33,
+        "filtered_text_len": 67573
+      },
+      "group_audio": {
+        "stats": {
+          "sd": 19,
+          "as": 11
+        },
+        "cards_after_filter": 20,
+        "filtered_text_len": 37353
+      },
+      "group_hcro": {
+        "stats": {
+          "hc": 44,
+          "ro": 87,
+          "nc": 1
+        },
+        "cards_after_filter": 21,
+        "filtered_text_len": 40740
+      }
+    },
+    "journal": {
+      "md_count": 1,
+      "png_count": 5,
+      "image_url_count": 5
+    },
+    "git_sync": {
+      "status": "error",
+      "message": "git_repo 不存在: /app/git_repo"
+    }
+  }
+}

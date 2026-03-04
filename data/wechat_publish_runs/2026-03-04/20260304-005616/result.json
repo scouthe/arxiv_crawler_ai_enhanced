@@ -1,0 +1,52 @@
+{
+  "status": "success",
+  "date": "2026-03-03",
+  "articles_count": 4,
+  "draft_media_id": "H1msZTrDz2EEoa3-9SwY7llNd6jSVRgJIIzURnPueVQCTdxrz4LJl9IHPIDC6MMX",
+  "article_titles": [
+    "SCI 1 区｜系统可靠性与安全计算方向权威期刊：IEEE Transactions on Dependable and...",
+    "人工智能，计算机视觉，机器学习， 图像和视频处理论文速递--(2026-03-03)",
+    "声音，音频和语音处理论文速递--(2026-03-03)",
+    "人机交互，机器人技术论文速递--(2026-03-03)"
+  ],
+  "diagnostics": {
+    "arxiv": {
+      "group_main": {
+        "stats": {
+          "ai": 36,
+          "cv": 137,
+          "lg": 48,
+          "iv": 6
+        },
+        "cards_after_filter": 66,
+        "filtered_text_len": 139439
+      },
+      "group_audio": {
+        "stats": {
+          "sd": 6,
+          "as": 0
+        },
+        "cards_after_filter": 6,
+        "filtered_text_len": 12654
+      },
+      "group_hcro": {
+        "stats": {
+          "hc": 13,
+          "ro": 33,
+          "nc": 0
+        },
+        "cards_after_filter": 33,
+        "filtered_text_len": 64442
+      }
+    },
+    "journal": {
+      "md_count": 1,
+      "png_count": 5,
+      "image_url_count": 5
+    },
+    "git_sync": {
+      "status": "error",
+      "message": "git_repo 不存在: /app/git_repo"
+    }
+  }
+}
