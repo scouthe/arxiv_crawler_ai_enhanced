@@ -276,5 +276,11 @@ def fetch_ai_news():
     return result_data
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    print(
+        "[DEPRECATED] FastAPI HTTP service is disabled in this repository.\n"
+        "Please use CLI entrypoints instead:\n"
+        "  1) python run_wechat_scheduler.py --once --date YYYY-MM-DD\n"
+        "  2) python run_crawler.py --date YYYY-MM-DD\n",
+        file=sys.stderr,
+    )
+    raise SystemExit(2)

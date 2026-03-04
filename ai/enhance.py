@@ -5,8 +5,7 @@ import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict
-from queue import Queue
-from threading import Lock
+import threading
 import requests
 
 import dotenv
@@ -99,22 +98,143 @@ def _is_local_model_unloaded_error(exc: Exception) -> bool:
     return any(marker in msg for marker in markers)
 
 
-def _fetch_local_model_ids(base_url: str, api_key: str) -> List[str]:
-    if not base_url:
-        return []
+def _resolve_midplatform_base_url() -> str:
+    """
+    解析中台地址，优先 MIDPLATFORM_BASE_URL，其次兼容 OPENAI_BASE_URL。
+    若给到的是 .../v1，则去掉 /v1 得到中台根地址。
+    """
+    api_base = os.environ.get("MIDPLATFORM_BASE_URL") or os.environ.get("OPENAI_BASE_URL") or "http://127.0.0.1:8900"
+    api_base = api_base.rstrip("/")
+    if api_base.endswith("/v1"):
+        api_base = api_base[:-3]
+    return api_base.rstrip("/")
 
-    base = base_url.rstrip("/")
-    models_url = f"{base}/models" if base.endswith("/v1") else f"{base}/v1/models"
-    headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+
+def _fetch_midplatform_models(api_base: str) -> List[Dict]:
+    models_url = f"{api_base}/api/models"
 
     try:
-        resp = requests.get(models_url, headers=headers, timeout=10)
+        resp = requests.get(models_url, timeout=10)
         resp.raise_for_status()
-        data = resp.json().get("data", [])
-        return [m.get("id") for m in data if isinstance(m, dict) and m.get("id")]
+        items = resp.json().get("items", [])
+        return [m for m in items if isinstance(m, dict) and m.get("model_name")]
     except Exception as e:
-        print(f"Failed to query local model list from {models_url}: {e}", file=sys.stderr)
+        print(f"Failed to query midplatform model list from {models_url}: {e}", file=sys.stderr)
         return []
+
+
+def _allocate_midplatform_lease(api_base: str, model_name: str) -> Dict:
+    allocate_url = f"{api_base}/api/allocate"
+    ctx = int(os.environ.get("LLM_CTX", "8000"))
+    max_wait_seconds = int(os.environ.get("LLM_MAX_WAIT_SECONDS", "300"))
+    owner_id = os.environ.get("LLM_OWNER_ID") or f"arxiv-crawler-{os.getpid()}"
+
+    payload = {
+        "model_name": model_name,
+        "ctx": ctx,
+        "wait": True,
+        "max_wait_seconds": max_wait_seconds,
+        "owner_type": "manual",
+        "owner_id": owner_id,
+    }
+    resp = requests.post(allocate_url, json=payload, timeout=max_wait_seconds + 30)
+    resp.raise_for_status()
+    data = resp.json()
+    if not data.get("lease_id") or not data.get("base_url"):
+        raise RuntimeError(f"Invalid allocate response: {data}")
+    return data
+
+
+def _release_midplatform_lease(api_base: str, lease_id: str) -> None:
+    release_url = f"{api_base}/api/release"
+    try:
+        resp = requests.post(release_url, json={"lease_id": lease_id}, timeout=15)
+        resp.raise_for_status()
+    except Exception as e:
+        print(f"Failed to release lease {lease_id}: {e}", file=sys.stderr)
+
+
+class _LeaseHeartbeatManager:
+    """
+    持有租约期间定时续租：
+    POST /api/leases/{lease_id}/renew
+    """
+
+    def __init__(self, api_base: str, lease_ids: List[str], interval_seconds: int = 30):
+        self.api_base = api_base.rstrip("/")
+        self.lease_ids = [x for x in lease_ids if x]
+        self.interval_seconds = max(5, interval_seconds)
+        self._stop_event = threading.Event()
+        self._thread = None
+
+    def start(self) -> None:
+        if not self.lease_ids:
+            return
+        if self._thread is not None:
+            return
+        self._thread = threading.Thread(target=self._loop, name="lease-heartbeat", daemon=True)
+        self._thread.start()
+
+    def stop(self) -> None:
+        if self._thread is None:
+            return
+        self._stop_event.set()
+        self._thread.join(timeout=5)
+        self._thread = None
+
+    def _renew_once(self, lease_id: str) -> None:
+        renew_url = f"{self.api_base}/api/leases/{lease_id}/renew"
+        try:
+            resp = requests.post(renew_url, json={}, timeout=10)
+            if resp.status_code != 200:
+                print(
+                    f"Lease renew failed for {lease_id}: status={resp.status_code}, body={resp.text[:300]}",
+                    file=sys.stderr,
+                )
+        except Exception as e:
+            print(f"Lease renew error for {lease_id}: {e}", file=sys.stderr)
+
+    def _loop(self) -> None:
+        # 约定每 30 秒续租一次；先等待一个间隔再续租，避免请求风暴
+        while not self._stop_event.wait(self.interval_seconds):
+            for lease_id in self.lease_ids:
+                if self._stop_event.is_set():
+                    return
+                self._renew_once(lease_id)
+
+
+def _process_batch(
+    chain,
+    provider: str,
+    language: str,
+    indexed_items: List[tuple],
+    batch_workers: int = 2,
+) -> List[tuple]:
+    """
+    处理一个数据分片，返回 (原始索引, 处理结果) 列表。
+    """
+    results = []
+    with ThreadPoolExecutor(max_workers=batch_workers) as executor:
+        future_to_item = {
+            executor.submit(process_single_item, chain, item, language, provider): (idx, item)
+            for idx, item in indexed_items
+        }
+        for future in as_completed(future_to_item):
+            idx, item = future_to_item[future]
+            try:
+                result = future.result()
+                results.append((idx, result))
+            except Exception as e:
+                print(f"Item at index {idx} generated an exception: {e}", file=sys.stderr)
+                item['AI'] = {
+                    "tldr": "Processing failed",
+                    "motivation": "Processing failed",
+                    "method": "Processing failed",
+                    "result": "Processing failed",
+                    "conclusion": "Processing failed"
+                }
+                results.append((idx, item))
+    return results
 
 def process_single_item(chain, item: Dict, language: str,provider) -> Dict:
     """
@@ -235,99 +355,164 @@ def process_all_items(data: List[Dict], model_name: str = "deepseek-chat", langu
         max_workers (int, optional): 最大并行数. Defaults to 1.
         provider:
         - "official": 用官方 OpenAI
-        - "local"   : 用你自建/LmStudio
+        - "local"   : 用本地 LLM 中台（allocate/release）
    
     Returns:
         List[Dict]: 带有AI增强内容的论文数据列表
     """
     # 从环境变量获取API配置
-
+    lease_ids = []
+    lease_heartbeat = None
     if provider == "official":
         api_key  = os.environ.get("OPENAI_API_KEY")
         base_url = os.environ.get("OPENAI_BASE_URL", "https://api.deepseek.com")
         # model_name 继续用 env/参数传入的官方模型名，比如 gpt-4o-mini
     elif provider == "local":
-        api_key  = os.environ.get("OPENAI_API_KEY", "vllm-local")  # vLLM 通常不校验，给个占位
-        base_url = os.environ.get("OPENAI_BASE_URL", "http://127.0.0.1:8900/v1")
-        # model_name 用你本地模型的名字，比如 "qwen2.5-32b-instruct"
-        local_model_ids = _fetch_local_model_ids(base_url, api_key)
-        if local_model_ids and model_name not in local_model_ids:
+        api_key = os.environ.get("OPENAI_API_KEY", "vllm-local")
+        api_base = _resolve_midplatform_base_url()
+        models = _fetch_midplatform_models(api_base)
+        ready_models = [m["model_name"] for m in models if m.get("status") == "ready"]
+
+        if not ready_models:
+            raise RuntimeError(
+                f"No ready models found from midplatform {api_base}/api/models. "
+                "Please ensure model is loaded."
+            )
+
+        if model_name not in ready_models:
+            fallback_model = ready_models[0]
             print(
-                f"Configured MODEL_NAME '{model_name}' not found on local server. "
-                f"Fallback to '{local_model_ids[0]}'.",
+                f"Configured MODEL_NAME '{model_name}' is not ready on midplatform. "
+                f"Fallback to '{fallback_model}'.",
                 file=sys.stderr,
             )
-            model_name = local_model_ids[0]
+            model_name = fallback_model
+
+        # 固定并发申请两个 lease，最大化利用中台双实例能力
+        with ThreadPoolExecutor(max_workers=2) as alloc_executor:
+            alloc_futures = [
+                alloc_executor.submit(_allocate_midplatform_lease, api_base, model_name),
+                alloc_executor.submit(_allocate_midplatform_lease, api_base, model_name),
+            ]
+            leases = [f.result() for f in alloc_futures]
+
+        for lease in leases:
+            lease_ids.append(lease["lease_id"])
+
+        base_urls = [lease["base_url"] for lease in leases]
+        model_name = leases[0].get("model_name", model_name)
+        print(
+            "Allocated 2 leases: "
+            + ", ".join(
+                [f"{lease['lease_id']}@{lease['base_url']}" for lease in leases]
+            ),
+            file=sys.stderr
+        )
+        # 按中台要求：租约持有期间每 30 秒续租一次
+        lease_heartbeat = _LeaseHeartbeatManager(api_base=api_base, lease_ids=lease_ids, interval_seconds=30)
+        lease_heartbeat.start()
     else:
         raise ValueError(f"Unknown provider: {provider}")
-    # 创建ChatOpenAI实例，传递API密钥和基础URL
-    llm_base = ChatOpenAI(
-        model=model_name,
-        api_key=api_key,
-        base_url=base_url
-    )
-    print('Connect to:',base_url,":", model_name, file=sys.stderr)
 
-    prompt_template = ChatPromptTemplate.from_messages([
-        SystemMessagePromptTemplate.from_template(system),
-        HumanMessagePromptTemplate.from_template(template=template)
-    ])
+    try:
+        processed_data = [None] * len(data)  # 预分配结果列表
 
-
-    parser = PydanticOutputParser(pydantic_object=Structure)
-    if provider == "official":
-        # 官方模型支持结构化输出和函数调用
-        llm = llm_base.with_structured_output(Structure, method="function_calling")
-        chain = prompt_template | llm
-    else:
-        fmt = parser.get_format_instructions()
-        fmt_escaped = fmt.replace("{", "{{").replace("}", "}}")
-
-        system_with_format = system + "\n\n" + fmt_escaped
-
-        # ✅ system 用纯 SystemMessage，不走模板解析
-        prompt_template_local = ChatPromptTemplate.from_messages([
-            SystemMessage(content=system_with_format),
-            HumanMessagePromptTemplate.from_template(template=template),
+        prompt_template = ChatPromptTemplate.from_messages([
+            SystemMessagePromptTemplate.from_template(system),
+            HumanMessagePromptTemplate.from_template(template=template)
         ])
+        parser = PydanticOutputParser(pydantic_object=Structure)
 
-        chain = prompt_template_local | llm_base | parser
+        if provider == "official":
+            # 创建ChatOpenAI实例，传递API密钥和基础URL
+            llm_base = ChatOpenAI(
+                model=model_name,
+                api_key=api_key,
+                base_url=base_url
+            )
+            print('Connect to:', base_url, ":", model_name, file=sys.stderr)
 
+            # 官方模型支持结构化输出和函数调用
+            llm = llm_base.with_structured_output(Structure, method="function_calling")
+            chain = prompt_template | llm
 
-
-    
-    # 使用线程池并行处理
-    processed_data = [None] * len(data)  # 预分配结果列表
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        # 提交所有任务
-        future_to_idx = {
-            executor.submit(process_single_item, chain, item, language,provider): idx
-            for idx, item in enumerate(data)
-        }
-        
-        # 使用tqdm显示进度
-        for future in tqdm(
-            as_completed(future_to_idx),
-            total=len(data),
-            desc="Processing items"
-        ):
-            idx = future_to_idx[future]
-            try:
-                result = future.result()
-                processed_data[idx] = result
-            except Exception as e:
-                print(f"Item at index {idx} generated an exception: {e}", file=sys.stderr)
-                # Add default AI fields to ensure consistency
-                processed_data[idx] = data[idx]
-                processed_data[idx]['AI'] = {
-                    "tldr": "Processing failed",
-                    "motivation": "Processing failed",
-                    "method": "Processing failed",
-                    "result": "Processing failed",
-                    "conclusion": "Processing failed"
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                future_to_idx = {
+                    executor.submit(process_single_item, chain, item, language, provider): idx
+                    for idx, item in enumerate(data)
                 }
-    
-    return processed_data
+
+                for future in tqdm(
+                    as_completed(future_to_idx),
+                    total=len(data),
+                    desc="Processing items"
+                ):
+                    idx = future_to_idx[future]
+                    try:
+                        result = future.result()
+                        processed_data[idx] = result
+                    except Exception as e:
+                        print(f"Item at index {idx} generated an exception: {e}", file=sys.stderr)
+                        processed_data[idx] = data[idx]
+                        processed_data[idx]['AI'] = {
+                            "tldr": "Processing failed",
+                            "motivation": "Processing failed",
+                            "method": "Processing failed",
+                            "result": "Processing failed",
+                            "conclusion": "Processing failed"
+                        }
+        else:
+            # 本地模式固定两路：两个 lease + 两个 chain + 数据二分并行
+            local_batch_workers = 6  # 固定每个实例并发为6
+            fmt = parser.get_format_instructions()
+            fmt_escaped = fmt.replace("{", "{{").replace("}", "}}")
+            system_with_format = system + "\n\n" + fmt_escaped
+
+            prompt_template_local = ChatPromptTemplate.from_messages([
+                SystemMessage(content=system_with_format),
+                HumanMessagePromptTemplate.from_template(template=template),
+            ])
+
+            chain_a = prompt_template_local | ChatOpenAI(
+                model=model_name,
+                api_key=api_key,
+                base_url=base_urls[0],
+            ) | parser
+            chain_b = prompt_template_local | ChatOpenAI(
+                model=model_name,
+                api_key=api_key,
+                base_url=base_urls[1],
+            ) | parser
+            print('Connect to:', base_urls[0], ":", model_name, file=sys.stderr)
+            print('Connect to:', base_urls[1], ":", model_name, file=sys.stderr)
+
+            midpoint = len(data) // 2
+            batch_a = list(enumerate(data[:midpoint]))
+            batch_b = [(i + midpoint, item) for i, item in enumerate(data[midpoint:])]
+
+            with ThreadPoolExecutor(max_workers=2) as split_executor:
+                future_a = split_executor.submit(
+                    _process_batch, chain_a, provider, language, batch_a, local_batch_workers
+                )
+                future_b = split_executor.submit(
+                    _process_batch, chain_b, provider, language, batch_b, local_batch_workers
+                )
+
+                with tqdm(total=len(data), desc="Processing items") as pbar:
+                    for future in as_completed([future_a, future_b]):
+                        batch_results = future.result()
+                        for idx, result in batch_results:
+                            processed_data[idx] = result
+                        pbar.update(len(batch_results))
+
+        return processed_data
+    finally:
+        if lease_heartbeat is not None:
+            lease_heartbeat.stop()
+        if provider == "local" and lease_ids:
+            api_base = _resolve_midplatform_base_url()
+            for lease_id in lease_ids:
+                _release_midplatform_lease(api_base, lease_id)
 
 def enhance_jsonl_data(jsonl_data: List[Dict], model_name: str = "deepseek-chat",
                          language: str = "Chinese", max_workers: int = 1, 

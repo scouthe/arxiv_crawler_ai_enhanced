@@ -29,7 +29,9 @@ HEJI_HTML = '<section style="background:#f3f3f3;padding:18px 20px 14px 20px;marg
 
 
 def load_journal_assets(base_dir: Path, date_str: str) -> tuple[list[Path], list[Path]]:
-    day_dir = base_dir / date_str
+    # Expected layout: <base_dir>/<YYYY>/<MM>/<YYYY-MM-DD>/
+    year, month, _day = date_str.split("-")
+    day_dir = base_dir / year / month / date_str
     md_files = sorted(day_dir.glob("*.md"))
     png_files = sorted(day_dir.glob("*.png"))
     return md_files, png_files
@@ -242,4 +244,3 @@ def build_journal_article(
         thumb_media_id=thumb_media_id,
         need_open_comment=1,
     )
-

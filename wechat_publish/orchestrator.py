@@ -1,5 +1,6 @@
 import os
 import time
+import logging
 from datetime import date
 from pathlib import Path
 
@@ -9,8 +10,16 @@ from git_sync import run_git_sync_internal
 
 from .journal_branch import build_journal_article, load_journal_assets
 from .markdown_branches import build_three_arxiv_articles
-from .models import DraftArticle, PipelineConfig, PublishResult
-from .wechat_client import WechatClient
+from .models import (
+    DraftArticle,
+    PipelineConfig,
+    PublishResult,
+    WechatConnectivityPrecheckError,
+)
+from .wechat_client import WechatClient, WechatAPIError, get_public_ip
+
+
+LOGGER = logging.getLogger("wechat_publish.orchestrator")
 
 
 def _truncate_wechat_title(title: str, max_bytes: int = 60) -> str:
@@ -27,13 +36,81 @@ def _truncate_wechat_title(title: str, max_bytes: int = 60) -> str:
     return cur + suffix
 
 
+def _cleanup_markdown_file(md_file: Path) -> None:
+    """Remove transient markdown after use; it will be regenerated on next run."""
+    try:
+        md_file.unlink(missing_ok=True)
+    except Exception:
+        # Best-effort cleanup only.
+        pass
+
+
+def _preflight_wechat_connectivity(config: PipelineConfig) -> dict:
+    if not config.wechat_app_id or not config.wechat_app_secret:
+        raise WechatConnectivityPrecheckError(
+            "WECHAT_APP_ID/WECHAT_APP_SECRET is required when dry_run=false",
+            errmsg="missing wechat app credentials",
+            current_ip=get_public_ip() or "unknown",
+        )
+
+    client = WechatClient(config.wechat_app_id, config.wechat_app_secret)
+    try:
+        client.get_access_token(force_refresh=True)
+        return {"current_ip": get_public_ip() or "unknown"}
+    except WechatAPIError as exc:
+        current_ip = get_public_ip() or "unknown"
+        hinted_ip = exc.hinted_ip
+        if exc.is_ip_whitelist_error:
+            message = (
+                f"微信接口连通性预检失败：疑似 IP 白名单限制。"
+                f" errcode={exc.errcode}, errmsg={exc.errmsg}, 当前公网IP={current_ip}"
+            )
+            if hinted_ip:
+                message += f", 微信返回IP={hinted_ip}"
+            message += "。请将该IP加入白名单后重试。"
+            LOGGER.error(message)
+            raise WechatConnectivityPrecheckError(
+                message,
+                errcode=exc.errcode,
+                errmsg=exc.errmsg,
+                current_ip=current_ip,
+                hinted_ip=hinted_ip,
+                raw_data=exc.data,
+            ) from exc
+
+        message = (
+            f"微信接口连通性预检失败。 errcode={exc.errcode}, errmsg={exc.errmsg}, 当前公网IP={current_ip}"
+        )
+        if hinted_ip:
+            message += f", 微信返回IP={hinted_ip}"
+        LOGGER.error(message)
+        raise WechatConnectivityPrecheckError(
+            message,
+            errcode=exc.errcode,
+            errmsg=exc.errmsg,
+            current_ip=current_ip,
+            hinted_ip=hinted_ip,
+            raw_data=exc.data,
+        ) from exc
+    except Exception as exc:
+        current_ip = get_public_ip() or "unknown"
+        message = f"微信接口连通性预检失败: {exc}"
+        LOGGER.error(message)
+        raise WechatConnectivityPrecheckError(
+            message,
+            errmsg=str(exc),
+            current_ip=current_ip,
+            raw_data={"exception": str(exc)},
+        ) from exc
+
+
 def load_config(date_str: str | None = None) -> PipelineConfig:
     if date_str is None:
         date_str = date.today().strftime("%Y-%m-%d")
     return PipelineConfig(
         date_str=date_str,
         markdown_dir=Path(os.environ.get("WECHAT_MARKDOWN_DIR", "./to_md/markdown")),
-        assets_dir=Path(os.environ.get("WECHAT_ASSETS_DIR", "./wechat_assets")),
+        assets_dir=Path(os.environ.get("WECHAT_ASSETS_DIR", "./期刊介绍")),
         wait_minutes=int(os.environ.get("WECHAT_WAIT_MINUTES", "30")),
         wait_retries=int(os.environ.get("WECHAT_WAIT_RETRIES", "1")),
         draft_author=os.environ.get("WECHAT_DRAFT_AUTHOR", "tianhe"),
@@ -64,6 +141,7 @@ def _read_markdown_with_retry(config: PipelineConfig) -> str:
         if md_file.exists():
             content = md_file.read_text(encoding="utf-8")
             if content.strip():
+                _cleanup_markdown_file(md_file)
                 return content
         if attempt < config.wait_retries:
             time.sleep(config.wait_minutes * 60)
@@ -71,68 +149,29 @@ def _read_markdown_with_retry(config: PipelineConfig) -> str:
     raise RuntimeError(f"markdown not ready: {md_file}")
 
 
-def _build_articles(
-    config: PipelineConfig,
-    markdown_text: str,
-    dry_run: bool,
+def _init_diagnostics(
+    *,
     run_arxiv_module: bool,
     run_journal_module: bool,
-) -> tuple[list[DraftArticle], dict]:
-    if not run_arxiv_module and not run_journal_module:
-        raise RuntimeError("run_arxiv_module 和 run_journal_module 不能同时为 false")
+    dry_run: bool,
+) -> dict:
+    modules: dict[str, dict] = {
+        "arxiv": {"status": "pending"} if run_arxiv_module else {"status": "skipped", "reason": "disabled"},
+        "journal": {"status": "pending"} if run_journal_module else {"status": "skipped", "reason": "disabled"},
+    }
+    steps: dict[str, dict] = {
+        "wechat_connectivity": {"status": "pending"} if not dry_run else {"status": "skipped", "reason": "dry_run"},
+        "draft_publish": {"status": "pending"},
+        "ai_enhance": {"status": "pending"},
+        "git_sync": {"status": "pending"},
+    }
+    return {"modules": modules, "steps": steps}
 
-    articles: list[DraftArticle] = []
-    diagnostics: dict = {}
 
-    if run_arxiv_module:
-        arxiv_articles, arxiv_diag = build_three_arxiv_articles(
-            markdown_text=markdown_text,
-            date_str=config.date_str,
-            author=config.draft_author,
-            source_url=config.content_source_url,
-            thumb_main=config.thumb_id_arxiv_main,
-            thumb_audio=config.thumb_id_arxiv_audio,
-            thumb_hcro=config.thumb_id_arxiv_hc_ro,
-        )
-        articles.extend(arxiv_articles)
-        diagnostics["arxiv"] = arxiv_diag
-
-    if run_journal_module:
-        md_files, png_files = load_journal_assets(config.assets_dir, config.date_str)
-        md_texts = [x.read_text(encoding="utf-8") for x in md_files]
-
-        journal_thumb_media_id = config.thumb_id_journal
-        if dry_run:
-            image_urls = [f"https://example.com/mock-{i}.png" for i, _ in enumerate(png_files)]
-            if not journal_thumb_media_id and len(png_files) > 4:
-                journal_thumb_media_id = "MOCK_MEDIA_ID_INDEX_4"
-        else:
-            if not config.wechat_app_id or not config.wechat_app_secret:
-                raise RuntimeError("WECHAT_APP_ID/WECHAT_APP_SECRET is required when dry_run=false")
-            client = WechatClient(config.wechat_app_id, config.wechat_app_secret)
-            uploaded = [client.upload_image_material(path) for path in png_files]
-            image_urls = [item.get("url", "") for item in uploaded]
-            if not journal_thumb_media_id and len(uploaded) > 4:
-                journal_thumb_media_id = uploaded[4].get("media_id", "")
-
-        journal_article = build_journal_article(
-            markdown_items=md_texts,
-            image_urls=image_urls,
-            author=config.draft_author,
-            thumb_media_id=journal_thumb_media_id,
-        )
-        # 期刊介绍固定放第一位
-        articles = [journal_article] + articles
-        diagnostics["journal"] = {
-            "md_count": len(md_files),
-            "png_count": len(png_files),
-            "image_url_count": len(image_urls),
-        }
-
-    if len(articles) > 8:
-        articles = articles[:8]
-
-    return articles, diagnostics
+def _raise_with_diagnostics(message: str, diagnostics: dict) -> None:
+    exc = RuntimeError(message)
+    setattr(exc, "diagnostics", diagnostics)
+    raise exc
 
 
 def run_pipeline(
@@ -141,31 +180,158 @@ def run_pipeline(
     run_arxiv_module: bool = True,
     run_journal_module: bool = True,
 ) -> PublishResult:
-    markdown_text = _read_markdown_with_retry(config)
-    articles, diagnostics = _build_articles(
-        config,
-        markdown_text,
-        dry_run=dry_run,
+    if not run_arxiv_module and not run_journal_module:
+        raise RuntimeError("run_arxiv_module 和 run_journal_module 不能同时为 false")
+
+    diagnostics = _init_diagnostics(
         run_arxiv_module=run_arxiv_module,
         run_journal_module=run_journal_module,
+        dry_run=dry_run,
     )
+
+    articles: list[DraftArticle] = []
+    arxiv_success = False
+    journal_success = False
+
+    if not dry_run:
+        try:
+            connectivity = _preflight_wechat_connectivity(config)
+            diagnostics["steps"]["wechat_connectivity"] = {"status": "success", **connectivity}
+        except WechatConnectivityPrecheckError as exc:
+            diagnostics["steps"]["wechat_connectivity"] = {
+                "status": "failed",
+                **exc.to_dict(),
+            }
+            diagnostics["wechat_connectivity"] = diagnostics["steps"]["wechat_connectivity"]
+            setattr(exc, "diagnostics", diagnostics)
+            raise
+    diagnostics["wechat_connectivity"] = diagnostics["steps"]["wechat_connectivity"]
+
+    if run_arxiv_module:
+        md_file = config.markdown_dir / f"{config.date_str}.md"
+        try:
+            markdown_text = _read_markdown_with_retry(config)
+            arxiv_articles, arxiv_diag = build_three_arxiv_articles(
+                markdown_text=markdown_text,
+                date_str=config.date_str,
+                author=config.draft_author,
+                source_url=config.content_source_url,
+                thumb_main=config.thumb_id_arxiv_main,
+                thumb_audio=config.thumb_id_arxiv_audio,
+                thumb_hcro=config.thumb_id_arxiv_hc_ro,
+            )
+            articles.extend(arxiv_articles)
+            diagnostics["modules"]["arxiv"] = {"status": "success", **arxiv_diag}
+            diagnostics["arxiv"] = arxiv_diag
+            arxiv_success = True
+        except Exception as exc:
+            diagnostics["modules"]["arxiv"] = {"status": "failed", "error": str(exc)}
+            LOGGER.exception("论文模块执行失败")
+        finally:
+            _cleanup_markdown_file(md_file)
+
+    if run_journal_module:
+        try:
+            md_files, png_files = load_journal_assets(config.assets_dir, config.date_str)
+            md_texts = [x.read_text(encoding="utf-8") for x in md_files]
+
+            journal_thumb_media_id = config.thumb_id_journal
+            if dry_run:
+                image_urls = [f"https://example.com/mock-{i}.png" for i, _ in enumerate(png_files)]
+                if not journal_thumb_media_id and len(png_files) > 4:
+                    journal_thumb_media_id = "MOCK_MEDIA_ID_INDEX_4"
+            else:
+                if not config.wechat_app_id or not config.wechat_app_secret:
+                    raise RuntimeError("WECHAT_APP_ID/WECHAT_APP_SECRET is required when dry_run=false")
+                client = WechatClient(config.wechat_app_id, config.wechat_app_secret)
+                uploaded = [client.upload_image_material(path) for path in png_files]
+                image_urls = [item.get("url", "") for item in uploaded]
+                if not journal_thumb_media_id and len(uploaded) > 4:
+                    journal_thumb_media_id = uploaded[4].get("media_id", "")
+
+            journal_article = build_journal_article(
+                markdown_items=md_texts,
+                image_urls=image_urls,
+                author=config.draft_author,
+                thumb_media_id=journal_thumb_media_id,
+            )
+            articles = [journal_article] + articles
+            journal_diag = {
+                "md_count": len(md_files),
+                "png_count": len(png_files),
+                "image_url_count": len(image_urls),
+            }
+            diagnostics["modules"]["journal"] = {"status": "success", **journal_diag}
+            diagnostics["journal"] = journal_diag
+            journal_success = True
+        except Exception as exc:
+            diagnostics["modules"]["journal"] = {"status": "failed", "error": str(exc)}
+            LOGGER.exception("期刊模块执行失败")
+
+    if not arxiv_success and not journal_success:
+        diagnostics["steps"]["draft_publish"] = {"status": "skipped", "reason": "no_articles"}
+        diagnostics["steps"]["ai_enhance"] = {"status": "skipped", "reason": "no_arxiv_output"}
+        diagnostics["steps"]["git_sync"] = {"status": "skipped", "reason": "no_module_succeeded"}
+        _raise_with_diagnostics("both modules failed", diagnostics)
+
+    if len(articles) > 8:
+        articles = articles[:8]
+
     title_max_bytes = int(os.environ.get("WECHAT_TITLE_MAX_BYTES", "0"))
     if title_max_bytes > 0:
         for article in articles:
             article.title = _truncate_wechat_title(article.title, max_bytes=title_max_bytes)
 
     draft_media_id = None
-    if not dry_run:
-        client = WechatClient(config.wechat_app_id, config.wechat_app_secret)
-        draft_resp = client.add_draft([a.to_dict() for a in articles])
-        draft_media_id = draft_resp.get("media_id")
+    if dry_run:
+        diagnostics["steps"]["draft_publish"] = {"status": "skipped", "reason": "dry_run"}
+    elif not articles:
+        diagnostics["steps"]["draft_publish"] = {"status": "skipped", "reason": "no_articles"}
+    else:
+        try:
+            client = WechatClient(config.wechat_app_id, config.wechat_app_secret)
+            draft_resp = client.add_draft([a.to_dict() for a in articles])
+            draft_media_id = draft_resp.get("media_id")
+            diagnostics["steps"]["draft_publish"] = {
+                "status": "success",
+                "media_id": draft_media_id,
+                "articles_count": len(articles),
+            }
+        except Exception as exc:
+            diagnostics["steps"]["draft_publish"] = {"status": "failed", "error": str(exc)}
+            _raise_with_diagnostics(f"draft publish failed: {exc}", diagnostics)
 
-    ai_enhance_only(date_set=config.date_str)
+    if arxiv_success:
+        try:
+            ai_ok = ai_enhance_only(date_set=config.date_str)
+            if not ai_ok:
+                raise RuntimeError("ai_enhance_only returned False")
+            diagnostics["steps"]["ai_enhance"] = {"status": "success"}
+        except Exception as exc:
+            diagnostics["steps"]["ai_enhance"] = {"status": "failed", "error": str(exc)}
+            _raise_with_diagnostics(f"ai enhance failed: {exc}", diagnostics)
+    else:
+        reason = "arxiv_module_disabled" if not run_arxiv_module else "arxiv_module_failed"
+        diagnostics["steps"]["ai_enhance"] = {"status": "skipped", "reason": reason}
 
-    diagnostics["git_sync"] = run_git_sync_internal(today_str=config.date_str)
+    try:
+        git_sync_result = run_git_sync_internal(today_str=config.date_str)
+        diagnostics["git_sync"] = git_sync_result
+        if git_sync_result.get("status") == "success":
+            diagnostics["steps"]["git_sync"] = {"status": "success", **git_sync_result}
+        else:
+            diagnostics["steps"]["git_sync"] = {"status": "failed", **git_sync_result}
+    except Exception as exc:
+        diagnostics["git_sync"] = {"status": "error", "message": str(exc)}
+        diagnostics["steps"]["git_sync"] = {"status": "failed", "error": str(exc)}
+        LOGGER.exception("git同步执行失败")
+
+    enabled_modules_count = int(run_arxiv_module) + int(run_journal_module)
+    succeeded_modules_count = int(arxiv_success) + int(journal_success)
+    result_status = "success" if succeeded_modules_count == enabled_modules_count else "partial_success"
 
     return PublishResult(
-        status="success",
+        status=result_status,
         date=config.date_str,
         articles_count=len(articles),
         article_titles=[a.title for a in articles],

@@ -15,6 +15,15 @@
 
 通过融合这两个仓库，我们实现了更强大、更灵活的arxiv论文处理系统，论文数据使用SQLite数据库管理，同时保持了代码的可维护性和扩展性。
 
+## ✅ 当前推荐运行方式（CLI Only）
+
+本仓库当前以 CLI/调度为主，不再通过 `python api_server.py` 提供 HTTP API 触发流程。
+
+- 完整发布流程（推荐）：
+  - `python run_wechat_scheduler.py --once --date YYYY-MM-DD`
+- 论文爬取/增强流程（按需）：
+  - `python run_crawler.py --date YYYY-MM-DD`
+
 ## ✨ 核心功能
 
 🎯 **无需基础设施**
@@ -53,7 +62,7 @@
 ### 前置要求
 - Python 3.8+（推荐3.10+）
 - Git
-- 可选：Node.js（用于高级HTTP服务器）
+- 可选：Node.js（仅用于静态页本地预览）
 
 ### 安装步骤
 
@@ -88,11 +97,18 @@
 本项目通过环境变量进行全面配置，所有关键参数均可在`.env`文件中设置：
 
 ```env
-# DeepSeek API配置
-OPENAI_API_KEY="your-api-key"          # DeepSeek API密钥
-OPENAI_BASE_URL="https://api.deepseek.com"  # DeepSeek API基础URL
-MODEL_NAME="deepseek-chat"           # 默认模型名称
-LANGUAGE="Chinese"                   # AI生成内容的语言
+# AI模型配置（推荐本地中台）
+PROVIDER="local"                           # official / local
+MIDPLATFORM_BASE_URL="http://127.0.0.1:8900"  # 本地中台地址（不带/api）
+OPENAI_API_KEY="vllm-local"               # 本地可用占位值
+MODEL_NAME="qwen/Qwen3-14B-FP8"           # 必须与 /api/models 返回一致
+LLM_CTX=8000
+LLM_MAX_WAIT_SECONDS=300
+LLM_OWNER_ID="arxiv-crawler"
+LANGUAGE="Chinese"                         # AI生成内容语言
+
+# 官方API兼容（历史兼容，PROVIDER=official 时使用）
+OPENAI_BASE_URL="https://api.deepseek.com"
 
 # 爬虫行为配置
 MAX_WORKERS=4                        # AI增强的最大并行数
@@ -116,8 +132,19 @@ STEP=50                              # 每页爬取数量
 
 # 部署与安全配置
 ACCESS_PASSWORD=                     # 页面访问密码，留空表示不使用密码保护
-EMAIL=your-email@example.com         # GitHub提交邮箱，用于GitHub Actions自动部署
+EMAIL=your-email@example.com         # GitHub提交邮箱，同时作为微信运行总结邮件收件人（可逗号分隔多个）
 NAME=your-github-username            # GitHub提交用户名，用于GitHub Actions自动部署
+
+# 微信运行总结邮件（默认开启，缺配置即失败）
+WECHAT_ALERT_EMAIL_ENABLED=true
+SMTP_HOST=smtp.example.com
+SMTP_PORT=465
+SMTP_USERNAME=alert@example.com
+SMTP_PASSWORD=your-smtp-password
+SMTP_USE_SSL=true
+SMTP_STARTTLS=false
+SMTP_FROM=alert@example.com
+SMTP_TIMEOUT_SECONDS=15
 ```
 
 ### 本地运行时设置变量的方法
@@ -240,7 +267,7 @@ python run_crawler.py --all --date 2025-12-05
 
 ## ⏰ 微信发布定时服务（替代 n8n HTTP 触发）
 
-如果你不想再通过 FastAPI HTTP 调用，可以直接运行本地定时服务。
+当前推荐直接运行本地定时服务（CLI 方式）。
 
 ### 1) 一次性执行（便于调试）
 
@@ -267,6 +294,34 @@ python run_wechat_scheduler.py
 - `WECHAT_RUN_ARXIV_MODULE`：是否执行三篇论文模块
 - `WECHAT_RUN_JOURNAL_MODULE`：是否执行期刊介绍模块
 - `WECHAT_RUNS_DIR`：运行结果持久化目录
+- `WECHAT_LOG_DIR`：调度器日志目录（默认 `./logs`）
+
+微信运行总结邮件配置：
+
+- `WECHAT_ALERT_EMAIL_ENABLED`：是否启用总结邮件（默认 `true`）
+- `EMAIL`：总结邮件收件人（逗号分隔多个地址）
+- `SMTP_HOST` / `SMTP_PORT` / `SMTP_USERNAME` / `SMTP_PASSWORD`：SMTP连接参数
+- `SMTP_USE_SSL` / `SMTP_STARTTLS`：二选一，不能同时为 `true`
+- `SMTP_FROM`：可选，默认使用 `SMTP_USERNAME`
+- `SMTP_TIMEOUT_SECONDS`：SMTP连接超时秒数，默认 `15`
+
+每次运行仅发送一封总结邮件，主题状态包含：
+
+- `[全部完成]`：论文与期刊模块都成功
+- `[部分完成]`：论文/期刊仅一个模块成功，另一个失败或跳过
+- `[全部失败]`：论文与期刊模块都失败，任务退出非0
+- `[预检失败]`：微信连通性预检失败并立即终止，邮件包含微信返回错误与IP信息
+
+严格校验规则：
+
+- 当 `WECHAT_ALERT_EMAIL_ENABLED=true` 时，若 `EMAIL` 或 SMTP 必填项缺失，程序启动即失败并退出。
+- 若 `SMTP_USE_SSL=true` 且 `SMTP_STARTTLS=true`，程序启动即失败并退出。
+- 邮件发送失败不会覆盖原始任务失败原因，只记录日志并保持原始异常。
+
+中台任务托管模式（`MIDPLATFORM_TASK_LOG_DIR` 存在）下：
+
+- 调度器日志会优先写入 `MIDPLATFORM_TASK_LOG_DIR`
+- 程序会向 `stdout` 输出一行 JSON：`{"external_log_path":"<绝对路径>"}`，用于中台记录业务日志路径
 
 ### 3) 数据持久化与迁移
 
@@ -353,109 +408,30 @@ live-server --port=8000
 3. 使用页面顶部的搜索框和筛选器查找感兴趣的论文
 4. 本地服务仅在您的计算机上可用，不会被外部访问
 
-## 🌐 API服务器与环境变量管理
+## 🌐 API服务器状态（Deprecated）
 
-### 运行API服务器
+`api_server.py` 作为历史兼容文件保留在仓库中，但当前仓库已切换为 CLI/调度运行模式。
 
-本项目提供了一个功能强大的API服务器，用于管理环境变量和控制爬虫运行。
+- `python api_server.py` 会直接提示已弃用并退出（非 0）。
+- 不再建议通过 `/run-crawler`、`/ai-enhance-only`、`/wechat-publish` 等 HTTP 端点触发流程。
+- `fetch-ai-news` HTTP 能力也随 HTTP 服务停用。
 
+### CLI 替代命令
+
+1. 完整发布流程（推荐）
 ```bash
-# 在项目根目录运行
-python api_server.py
+python run_wechat_scheduler.py --once --date YYYY-MM-DD
 ```
 
-服务器将在端口8000上运行，您可以通过以下方式访问：
-- API文档：`http://localhost:8000/docs`（FastAPI自动生成的Swagger文档）
-- 环境变量管理界面：`http://localhost:8000/env-manager`
+2. 论文流程（按需）
+```bash
+python run_crawler.py --date YYYY-MM-DD
+```
 
-### 环境变量管理Web界面
-
-环境变量管理Web界面提供了一个直观的方式来查看和修改环境变量，无需手动编辑`.env`文件。
-
-#### 功能特性
-
-- **直观的界面设计**：采用现代化的响应式设计，支持各种设备
-- **实时更新**：修改环境变量后立即生效，无需重启服务器
-- **详细的变量描述**：每个环境变量都有清晰的描述，方便理解其用途
-- **按字母排序**：环境变量按字母顺序排列，便于查找
-- **批量修改支持**：可以一次性修改多个环境变量
-- **自动保存**：修改后自动保存到`.env`文件，确保配置持久化
-
-#### 使用方法
-
-1. 启动API服务器
-2. 在浏览器中访问 `http://localhost:8000/env-manager`
-3. 查看当前环境变量值
-4. 点击任意环境变量的值进行编辑
-5. 修改完成后，点击"保存环境变量"按钮
-6. 系统会显示成功消息，并将修改保存到`.env`文件
-
-### API端点详细说明
-
-API服务器提供了以下端点，用于管理环境变量和控制爬虫运行：
-
-| 端点 | 方法 | 描述 | 请求体 | 响应 |
-|------|------|------|--------|------|
-| `/` | GET | 健康检查 | 无 | `{"status": "online", "system": "Docker Container"}` |
-| `/env-vars` | GET | 获取所有环境变量 | 无 | `{"env_vars": {"VAR1": "value1", "VAR2": "value2"}}` |
-| `/env-vars/example` | GET | 获取环境变量示例 | 无 | `{"example_env_vars": {"VAR1": "example_value1"}}` |
-| `/env-vars` | PUT | 批量更新环境变量 | `{"env_vars": {"VAR1": "new_value1", "VAR2": "new_value2"}}` | `{"status": "success", "message": "成功更新 2 个环境变量", "updated_vars": ["VAR1", "VAR2"]}` |
-| `/env-vars/{var_name}` | PUT | 更新单个环境变量 | `{"value": "new_value"}` | `{"status": "success", "message": "成功更新环境变量 VAR1", "updated_var": "VAR1", "value": "new_value"}` |
-| `/run-crawler` | POST | 触发完整流程：爬取 + AI增强 | `{"all_mode": false, "date_set": "2025-12-05"}` | `{"status": "success", "message": "完整流程完成: 2025-12-05", "generated_files_path": "/app/data"}` |
-| `/crawl-only` | POST | 仅触发爬取，不进行AI增强 | `{"all_mode": false, "date_set": "2025-12-05"}` | `{"status": "success", "message": "仅爬取完成: 2025-12-05", "generated_files_path": "/app/data"}` |
-| `/ai-enhance-only` | POST | 仅触发AI增强，对已有的爬取结果 | `{"all_mode": false, "date_set": "2025-12-05"}` | `{"status": "success", "message": "仅AI增强完成: 2025-12-05", "generated_files_path": "/app/data"}` |
-| `/run-git-sync` | POST | 触发Git同步 | 无 | `{"status": "success", "message": "Git Push 成功！"}` |
-| `/env-manager` | GET | 访问环境变量管理Web界面 | 无 | HTML页面 |
-
-#### 使用示例
-
-1. **获取所有环境变量**
-   ```bash
-   curl http://localhost:8000/env-vars
-   ```
-
-2. **更新单个环境变量**
-   ```bash
-   curl -X PUT -H "Content-Type: application/json" -d '{"value": "10"}' http://localhost:8000/env-vars/MAX_WORKERS
-   ```
-
-3. **批量更新环境变量**
-   ```bash
-   curl -X PUT -H "Content-Type: application/json" -d '{"env_vars": {"MAX_WORKERS": "10", "LANGUAGE": "Chinese"}}' http://localhost:8000/env-vars
-   ```
-
-4. **触发爬虫运行**
-   ```bash
-   curl -X POST -H "Content-Type: application/json" -d '{"all_mode": false, "date_set": "2025-12-05"}' http://localhost:8000/run-crawler
-   ```
-
-### API服务器使用场景
-
-#### 场景1：自动化管理
-
-通过API服务器，可以实现自动化管理爬虫和环境变量：
-
-1. 编写脚本定期调用API触发爬虫运行
-2. 根据需要动态调整环境变量
-3. 集成到其他系统中，实现更复杂的自动化流程
-
-#### 场景2：远程管理
-
-在Docker容器中运行API服务器，可以通过网络远程管理环境变量和控制爬虫：
-
-1. 在Docker中启动API服务器
-2. 映射容器端口到主机
-3. 通过网络访问API端点或Web界面
-4. 远程管理爬虫配置和运行
-
-#### 场景3：多用户协作
-
-多个用户可以通过API服务器共享同一套环境配置：
-
-1. 启动API服务器并配置访问权限
-2. 团队成员通过Web界面或API访问
-3. 所有修改都会立即生效，确保配置一致性
-4. 便于团队协作和配置管理
+3. 仅 AI 增强（按需）
+```bash
+python -c "from run_crawler import ai_enhance_only; ai_enhance_only('YYYY-MM-DD')"
+```
 
 ## 🛠️ 调试与故障排除
 

@@ -1,8 +1,55 @@
 import time
 import json
+import re
 from pathlib import Path
+from typing import Any
 
 import requests
+
+
+class WechatAPIError(RuntimeError):
+    def __init__(self, action: str, data: dict[str, Any]):
+        self.action = action
+        self.data = data
+        try:
+            self.errcode = int(data.get("errcode"))
+        except Exception:
+            self.errcode = None
+        self.errmsg = str(data.get("errmsg", ""))
+        super().__init__(f"{action} failed: {data}")
+
+    @property
+    def is_ip_whitelist_error(self) -> bool:
+        msg = self.errmsg.lower()
+        return self.errcode == 40164 or ("invalid ip" in msg and "whitelist" in msg)
+
+    @property
+    def hinted_ip(self) -> str | None:
+        m = re.search(r"invalid ip\s*([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)", self.errmsg, flags=re.I)
+        if m:
+            return m.group(1)
+        return None
+
+
+def get_public_ip(timeout: int = 5) -> str | None:
+    providers: list[tuple[str, str]] = [
+        ("https://api64.ipify.org?format=json", "json"),
+        ("https://ifconfig.me/ip", "text"),
+        ("https://checkip.amazonaws.com", "text"),
+    ]
+    for url, mode in providers:
+        try:
+            resp = requests.get(url, timeout=timeout)
+            resp.raise_for_status()
+            if mode == "json":
+                ip = str(resp.json().get("ip", "")).strip()
+            else:
+                ip = resp.text.strip()
+            if re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+", ip):
+                return ip
+        except Exception:
+            continue
+    return None
 
 
 class WechatClient:
@@ -24,7 +71,7 @@ class WechatClient:
         resp.raise_for_status()
         data = resp.json()
         if "access_token" not in data:
-            raise RuntimeError(f"Failed to get access_token: {data}")
+            raise WechatAPIError("get access_token", data)
         token = data["access_token"]
         expires_in = int(data.get("expires_in", 7200))
         self._token = token
@@ -46,7 +93,7 @@ class WechatClient:
         resp.raise_for_status()
         data = resp.json()
         if data.get("errcode"):
-            raise RuntimeError(f"upload image failed: {data}")
+            raise WechatAPIError("upload image", data)
         return data
 
     def add_draft(self, articles: list[dict]) -> dict:
@@ -65,5 +112,5 @@ class WechatClient:
         resp.raise_for_status()
         data = resp.json()
         if data.get("errcode"):
-            raise RuntimeError(f"add draft failed: {data}")
+            raise WechatAPIError("add draft", data)
         return data

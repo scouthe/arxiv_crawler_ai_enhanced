@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 
 @dataclass
@@ -44,12 +44,40 @@ class DraftArticle:
 
 @dataclass
 class PublishResult:
-    status: str
+    status: Literal["success", "partial_success", "failed"]
     date: str
     articles_count: int
     article_titles: list[str]
     draft_media_id: str | None = None
     diagnostics: dict[str, Any] = field(default_factory=dict)
+
+
+class WechatConnectivityPrecheckError(RuntimeError):
+    def __init__(
+        self,
+        message: str,
+        *,
+        errcode: int | None = None,
+        errmsg: str = "",
+        current_ip: str | None = None,
+        hinted_ip: str | None = None,
+        raw_data: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.errcode = errcode
+        self.errmsg = errmsg
+        self.current_ip = current_ip
+        self.hinted_ip = hinted_ip
+        self.raw_data = raw_data or {}
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "errcode": self.errcode,
+            "errmsg": self.errmsg,
+            "current_ip": self.current_ip,
+            "hinted_ip": self.hinted_ip,
+            "raw_data": self.raw_data,
+        }
 
 
 @dataclass
@@ -67,4 +95,3 @@ class PipelineConfig:
     thumb_id_journal: str
     wechat_app_id: str
     wechat_app_secret: str
-

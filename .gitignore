@@ -15,3 +15,7 @@ test/*
 .cursorrules
 /arxiv_crawler/*
 auto_push.bat
+
+# Runtime logs
+logs/*
+!logs/.gitkeep
