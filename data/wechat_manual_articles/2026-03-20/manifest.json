@@ -1,0 +1,34 @@
+{
+  "date": "2026-03-20",
+  "articles_count": 4,
+  "articles": [
+    {
+      "index": 1,
+      "title": "中科院计算机2区、云计算JCR Q1期刊：IEEE Transactions on Cloud Computing",
+      "digest": "助力学术成长，点亮科研之路",
+      "content_file": "01_中科院计算机2区、云计算JCR_Q1期刊：IEEE_Transactions_on_Cloud_Computing.content.html",
+      "payload_file": "01_中科院计算机2区、云计算JCR_Q1期刊：IEEE_Transactions_on_Cloud_Computing.payload.json"
+    },
+    {
+      "index": 2,
+      "title": "人工智能，计算机视觉，机器学习， 图像和视频处理论文速递--(2026-03-20)",
+      "digest": "今日最新 Arxiv 论文摘要汇总 (2026-03-20)",
+      "content_file": "02_人工智能，计算机视觉，机器学习，_图像和视频处理论文速递--(2026-03-20).content.html",
+      "payload_file": "02_人工智能，计算机视觉，机器学习，_图像和视频处理论文速递--(2026-03-20).payload.json"
+    },
+    {
+      "index": 3,
+      "title": "声音，音频和语音处理论文速递--(2026-03-20)",
+      "digest": "今日最新 Arxiv 论文摘要汇总 (2026-03-20)",
+      "content_file": "03_声音，音频和语音处理论文速递--(2026-03-20).content.html",
+      "payload_file": "03_声音，音频和语音处理论文速递--(2026-03-20).payload.json"
+    },
+    {
+      "index": 4,
+      "title": "人机交互，机器人技术论文速递--(2026-03-20)",
+      "digest": "今日最新 Arxiv 论文摘要汇总 (2026-03-20)",
+      "content_file": "04_人机交互，机器人技术论文速递--(2026-03-20).content.html",
+      "payload_file": "04_人机交互，机器人技术论文速递--(2026-03-20).payload.json"
+    }
+  ]
+}

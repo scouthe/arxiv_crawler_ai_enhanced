@@ -1,0 +1,136 @@
+{
+  "status": "success",
+  "date": "2026-03-23",
+  "articles_count": 4,
+  "draft_media_id": "G4WnkOWFcimZ2-CdMbaq1bPriGrkRdcGdRgr1GX0twIQpJrmoXm62YtWqPrt9wfE",
+  "article_titles": [
+    "中科院2区Top、电路与系统JCR Q1期刊：IEEE Transactions on Circuits and Sys...",
+    "人工智能，计算机视觉，机器学习， 图像和视频处理论文速递--(2026-03-23)",
+    "声音，音频和语音处理论文速递--(2026-03-23)",
+    "人机交互，机器人技术论文速递--(2026-03-23)"
+  ],
+  "diagnostics": {
+    "modules": {
+      "arxiv": {
+        "status": "success",
+        "group_main": {
+          "stats": {
+            "ai": 34,
+            "cv": 157,
+            "lg": 39,
+            "iv": 4
+          },
+          "cards_after_filter": 34,
+          "filtered_text_len": 71190
+        },
+        "group_audio": {
+          "stats": {
+            "sd": 7,
+            "as": 4
+          },
+          "cards_after_filter": 11,
+          "filtered_text_len": 22318
+        },
+        "group_hcro": {
+          "stats": {
+            "hc": 21,
+            "ro": 43,
+            "nc": 2
+          },
+          "cards_after_filter": 22,
+          "filtered_text_len": 43968
+        }
+      },
+      "journal": {
+        "status": "success",
+        "md_count": 1,
+        "png_count": 5,
+        "image_url_count": 5
+      }
+    },
+    "steps": {
+      "wechat_connectivity": {
+        "status": "success",
+        "current_ip": "38.49.57.21"
+      },
+      "article_export": {
+        "status": "success",
+        "export_dir": "/home/heheheh/Documents/n8n/arxiv_crawler_ai_enhanced/data/wechat_manual_articles/2026-03-23",
+        "manifest_path": "/home/heheheh/Documents/n8n/arxiv_crawler_ai_enhanced/data/wechat_manual_articles/2026-03-23/manifest.json",
+        "articles_count": 4
+      },
+      "draft_publish": {
+        "status": "success",
+        "media_id": "G4WnkOWFcimZ2-CdMbaq1bPriGrkRdcGdRgr1GX0twIQpJrmoXm62YtWqPrt9wfE",
+        "articles_count": 4
+      },
+      "ai_enhance": {
+        "status": "success"
+      },
+      "git_sync": {
+        "status": "warning",
+        "message": "未配置 GIT_TOKEN 或 origin 凭据不可用，仅完成本地提交"
+      },
+      "xiaohongshu_copy": {
+        "status": "success",
+        "model_name": "qwen/Qwen3-14B-FP8",
+        "lease_id": "720b73bb-a45c-42d2-af9f-0b47cc4f8555",
+        "content_preview": "标题：IEEE TCAS-I：电路与系统的“硬核担当”   正文：   作为 IEEE 电路与系统学会的旗舰刊，TCAS-I 是中科院2区Top、JCR Q1的“电路界顶流”！它不排斥创新，但只收 **理论扎实、设计创新、实现验证三者兼具** 的硬核成果！   📝 地位：IEEE Transactions 旗下，稳居 JCR Q1 + 中科院1区Top，认可度拉满。   📝 影响力：IF 5.2，"
+      }
+    },
+    "wechat_connectivity": {
+      "status": "success",
+      "current_ip": "38.49.57.21"
+    },
+    "arxiv": {
+      "group_main": {
+        "stats": {
+          "ai": 34,
+          "cv": 157,
+          "lg": 39,
+          "iv": 4
+        },
+        "cards_after_filter": 34,
+        "filtered_text_len": 71190
+      },
+      "group_audio": {
+        "stats": {
+          "sd": 7,
+          "as": 4
+        },
+        "cards_after_filter": 11,
+        "filtered_text_len": 22318
+      },
+      "group_hcro": {
+        "stats": {
+          "hc": 21,
+          "ro": 43,
+          "nc": 2
+        },
+        "cards_after_filter": 22,
+        "filtered_text_len": 43968
+      }
+    },
+    "journal": {
+      "md_count": 1,
+      "png_count": 5,
+      "image_url_count": 5
+    },
+    "article_export": {
+      "status": "success",
+      "export_dir": "/home/heheheh/Documents/n8n/arxiv_crawler_ai_enhanced/data/wechat_manual_articles/2026-03-23",
+      "manifest_path": "/home/heheheh/Documents/n8n/arxiv_crawler_ai_enhanced/data/wechat_manual_articles/2026-03-23/manifest.json",
+      "articles_count": 4
+    },
+    "git_sync": {
+      "status": "warning",
+      "message": "未配置 GIT_TOKEN 或 origin 凭据不可用，仅完成本地提交"
+    },
+    "xiaohongshu_copy": {
+      "status": "success",
+      "model_name": "qwen/Qwen3-14B-FP8",
+      "lease_id": "720b73bb-a45c-42d2-af9f-0b47cc4f8555",
+      "content": "标题：IEEE TCAS-I：电路与系统的“硬核担当”  \n正文：  \n作为 IEEE 电路与系统学会的旗舰刊，TCAS-I 是中科院2区Top、JCR Q1的“电路界顶流”！它不排斥创新，但只收 **理论扎实、设计创新、实现验证三者兼具** 的硬核成果！  \n📝 地位：IEEE Transactions 旗下，稳居 JCR Q1 + 中科院1区Top，认可度拉满。  \n📝 影响力：IF 5.2，CiteScore 10.6，是电路与系统领域的“学术风向标”。  \n📝 非OA：非开放获取，但引用率稳居高位，是工程与理论结合的“实力派”。  \n\n✅ 收什么？（理论+智能）  \n理论深度：电路理论、系统建模、非线性系统等基础研究必须有数学推导和理论创新。  \n设计创新：模拟/数字/混合信号电路、SoC、MEMS、纳米电路等方向的原创设计方法。  \n实现验证：必须包含芯片测试、硬件原型或系统级实验，强调工程可实现性与应用价值。  \n\n❌ 拒什么？（精准避雷）  \n纯应用包装：只讲硬件实现，缺乏理论分析或系统设计创新（建议投工程类期刊）。  \n实验不充分：仅有仿真结果，无芯片测试或系统验证（拒稿率高）。  \n理论薄弱：强行堆砌AI算法，但未结合电路与系统方法论（匹配度低）。"
+    }
+  }
+}

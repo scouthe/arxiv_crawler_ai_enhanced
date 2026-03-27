@@ -1,0 +1,124 @@
+{
+  "status": "success",
+  "date": "2026-03-06",
+  "articles_count": 4,
+  "draft_media_id": "H1msZTrDz2EEoa3-9SwY7hQElSjVtoSYviKx0JEqK9NbhHqdjxfdkndY55X20rn1",
+  "article_titles": [
+    "中科院计算机科学2区、HMS交互权威期刊：IEEE THMS",
+    "人工智能，计算机视觉，机器学习， 图像和视频处理论文速递--(2026-03-06)",
+    "声音，音频和语音处理论文速递--(2026-03-06)",
+    "人机交互，机器人技术论文速递--(2026-03-06)"
+  ],
+  "diagnostics": {
+    "modules": {
+      "arxiv": {
+        "status": "success",
+        "group_main": {
+          "stats": {
+            "ai": 55,
+            "cv": 106,
+            "lg": 49,
+            "iv": 2
+          },
+          "cards_after_filter": 32,
+          "filtered_text_len": 67394
+        },
+        "group_audio": {
+          "stats": {
+            "sd": 9,
+            "as": 4
+          },
+          "cards_after_filter": 13,
+          "filtered_text_len": 22860
+        },
+        "group_hcro": {
+          "stats": {
+            "hc": 14,
+            "ro": 50,
+            "nc": 2
+          },
+          "cards_after_filter": 22,
+          "filtered_text_len": 41800
+        }
+      },
+      "journal": {
+        "status": "success",
+        "md_count": 1,
+        "png_count": 5,
+        "image_url_count": 5
+      }
+    },
+    "steps": {
+      "wechat_connectivity": {
+        "status": "success",
+        "current_ip": "211.20.157.164"
+      },
+      "draft_publish": {
+        "status": "success",
+        "media_id": "H1msZTrDz2EEoa3-9SwY7hQElSjVtoSYviKx0JEqK9NbhHqdjxfdkndY55X20rn1",
+        "articles_count": 4
+      },
+      "ai_enhance": {
+        "status": "success"
+      },
+      "git_sync": {
+        "status": "success",
+        "message": "Git Push 成功！（origin）"
+      },
+      "xiaohongshu_copy": {
+        "status": "success",
+        "model_name": "qwen/Qwen3-14B-FP8",
+        "lease_id": "05f24cec-a9eb-47f6-821b-2561652f00d6",
+        "content_preview": "<think>\n好的，我现在需要根据用户提供的期刊介绍原文，模仿参考示例的风格和结构，生成一篇符合要求的小红书文案。首先，我需要仔细阅读用户提供的期刊介绍原文，提取关键信息，并按照参考示例的结构来组织内容。\n\n首先，标题部分。参考示例的标题是“IEEE/CAA JAS：自动化人的‘国刊之光’”，这里需要突出期刊的权威性和特点。根据原文，THMS是IEEE Transactions on Human"
+      }
+    },
+    "wechat_connectivity": {
+      "status": "success",
+      "current_ip": "211.20.157.164"
+    },
+    "arxiv": {
+      "group_main": {
+        "stats": {
+          "ai": 55,
+          "cv": 106,
+          "lg": 49,
+          "iv": 2
+        },
+        "cards_after_filter": 32,
+        "filtered_text_len": 67394
+      },
+      "group_audio": {
+        "stats": {
+          "sd": 9,
+          "as": 4
+        },
+        "cards_after_filter": 13,
+        "filtered_text_len": 22860
+      },
+      "group_hcro": {
+        "stats": {
+          "hc": 14,
+          "ro": 50,
+          "nc": 2
+        },
+        "cards_after_filter": 22,
+        "filtered_text_len": 41800
+      }
+    },
+    "journal": {
+      "md_count": 1,
+      "png_count": 5,
+      "image_url_count": 5
+    },
+    "git_sync": {
+      "status": "success",
+      "message": "Git Push 成功！（origin）"
+    },
+    "xiaohongshu_copy": {
+      "status": "success",
+      "model_name": "qwen/Qwen3-14B-FP8",
+      "lease_id": "05f24cec-a9eb-47f6-821b-2561652f00d6",
+      "content": "<think>\n好的，我现在需要根据用户提供的期刊介绍原文，模仿参考示例的风格和结构，生成一篇符合要求的小红书文案。首先，我需要仔细阅读用户提供的期刊介绍原文，提取关键信息，并按照参考示例的结构来组织内容。\n\n首先，标题部分。参考示例的标题是“IEEE/CAA JAS：自动化人的‘国刊之光’”，这里需要突出期刊的权威性和特点。根据原文，THMS是IEEE Transactions on Human-Machine Systems，属于中科院计算机科学2区，JCR 1区，所以标题可以类似“IEEE THMS：人机交互的‘硬核顶刊’”。\n\n接下来是正文部分。参考示例的正文分为几个部分，包括期刊的地位、影响力、开放获取情况等。需要从原文中提取这些信息，比如THMS由IEEE出版，聚焦人机系统，JCR分区，中科院分区，影响因子，发文量等。需要注意原文提到THMS是Transactions级核心期刊，JCR Q1，中科院2区，影响因子4.4，CiteScore 8.90，发文量78，非OA等信息。\n\n然后是“✅ 收什么？（理论+智能）”部分。参考示例列出了期刊接收的类型，比如交叉融合、数学严谨、复杂系统等。根据THMS的征稿范围，需要提取其关注的方向，如人—系统协同机制、认知工效学、系统测试评估、人类信息处理等。同时，原文提到投稿建议中需要明确人—机—系统耦合关系，把评估做完整，强调可复现性，突出系统意义，这些可以作为接收的内容要点。\n\n“❌ 拒什么？（精准避雷）”部分需要列出期刊拒绝的内容。原文提到THMS偏好有可验证、可评估、可复用的贡献，避免概念性讨论或缺乏评估闭环的工作。因此，拒绝的内容可能包括：纯理论无实验、缺乏系统验证、概念性讨论、无复现细节等。\n\n需要确保不编造原文中没有的信息，严格按照原文内容，同时保持文风有传播感，信息准确。还要注意结构是否符合参考示例，分点清晰，使用符号和表情符号来增强可读性。\n\n现在需要检查是否有遗漏的关键点，比如期刊官网、投稿系统、开放获取情况、分区信息等是否正确引用。同时，确保每个部分的信息准确无误，没有添加原文未提及的内容。\n\n最后，确保输出格式正确，没有使用代码块，分标题和内容部分，使用正确的符号和结构。例如，标题用“标题：...”，正文用“正文：...”，然后分点列出收什么和拒什么，使用✅和❌符号，并且不使用任何解释性文字，直接输出结果。\n</think>\n\n标题：IEEE THMS：人机交互的“硬核顶刊”  \n正文：  \n作为IEEE Systems, Man, and Cybernetics Society主办的王牌期刊，THMS稳居**JCR 1区**，在**计算机科学大类中科院2区**，是人机系统与人因交互领域的“学术标杆”。  \n📝 **地位**：Transactions级核心期刊，聚焦“人—机—系统”协同运行，认可度高。  \n📝 **影响力**：IF 4.4，CiteScore 8.90，系统评估与认知工效学方向引用稳定。  \n📝 **非OA**：非开放获取期刊，Gold OA仅占10.71%，适合追求学术严谨性的研究者。  \n\n✅ 收什么？（理论+智能）  \n**人机耦合机制**：强调“人如何参与系统”的建模与验证，如人—系统协同、人因设计方法。  \n**系统评估闭环**：必须包含实验设计、对照设置、指标定义与统计分析，拒绝“只讲方法不讲验证”。  \n**可复现性**：数据、协议、场景细节需清晰，突出对系统设计与运行的启示。  \n**交叉融合**：认知工效学、信息处理、系统测试等方向与AI、人因工程的结合是热点。  \n\n❌ 拒什么？（精准避雷）  \n**纯理论无实验**：仅有模型推导，缺乏系统验证或实验数据（建议投理论类期刊）。  \n**概念性讨论**：停留在“人机交互”概念层面，无具体评估框架或可复用结论。  \n**评估不完整**：实验设计粗糙，未定义关键指标或缺乏鲁棒性分析。  \n**缺乏系统意义**：仅报告效果，不解释对系统设计、验证或运行的实际价值。"
+    }
+  }
+}

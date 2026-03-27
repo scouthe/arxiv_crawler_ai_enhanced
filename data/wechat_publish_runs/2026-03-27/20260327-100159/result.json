@@ -1,0 +1,136 @@
+{
+  "status": "success",
+  "date": "2026-03-27",
+  "articles_count": 4,
+  "draft_media_id": "G4WnkOWFcimZ2-CdMbaq1ZkF5TnGaTIh-or0VS0blKNR685zlkWgMjuioHeSoKcX",
+  "article_titles": [
+    "中科院2区、可靠性与软硬件系统JCR Q1期刊：IEEE TR",
+    "人工智能，计算机视觉，机器学习， 图像和视频处理论文速递--(2026-03-27)",
+    "声音，音频和语音处理论文速递--(2026-03-27)",
+    "人机交互，机器人技术论文速递--(2026-03-27)"
+  ],
+  "diagnostics": {
+    "modules": {
+      "arxiv": {
+        "status": "success",
+        "group_main": {
+          "stats": {
+            "ai": 57,
+            "cv": 177,
+            "lg": 26,
+            "iv": 2
+          },
+          "cards_after_filter": 32,
+          "filtered_text_len": 65160
+        },
+        "group_audio": {
+          "stats": {
+            "sd": 5,
+            "as": 2
+          },
+          "cards_after_filter": 7,
+          "filtered_text_len": 11210
+        },
+        "group_hcro": {
+          "stats": {
+            "hc": 18,
+            "ro": 40,
+            "nc": 1
+          },
+          "cards_after_filter": 21,
+          "filtered_text_len": 43301
+        }
+      },
+      "journal": {
+        "status": "success",
+        "md_count": 1,
+        "png_count": 5,
+        "image_url_count": 5
+      }
+    },
+    "steps": {
+      "wechat_connectivity": {
+        "status": "success",
+        "current_ip": "38.49.57.21"
+      },
+      "article_export": {
+        "status": "success",
+        "export_dir": "/home/heheheh/Documents/n8n/arxiv_crawler_ai_enhanced/data/wechat_manual_articles/2026-03-27",
+        "manifest_path": "/home/heheheh/Documents/n8n/arxiv_crawler_ai_enhanced/data/wechat_manual_articles/2026-03-27/manifest.json",
+        "articles_count": 4
+      },
+      "draft_publish": {
+        "status": "success",
+        "media_id": "G4WnkOWFcimZ2-CdMbaq1ZkF5TnGaTIh-or0VS0blKNR685zlkWgMjuioHeSoKcX",
+        "articles_count": 4
+      },
+      "ai_enhance": {
+        "status": "success"
+      },
+      "git_sync": {
+        "status": "warning",
+        "message": "未配置 GIT_TOKEN 或 origin 凭据不可用，仅完成本地提交"
+      },
+      "xiaohongshu_copy": {
+        "status": "success",
+        "model_name": "qwen/Qwen3-14B-FP8",
+        "lease_id": "0022e474-40c5-4958-8883-3786eaa877d5",
+        "content_preview": "标题：IEEE TR：可靠性研究的“工程硬核担当”   正文：作为 IEEE 可靠性学会主办的顶刊，IEEE TR 稳居 **中科院2区、JCR多学科Q1**，是软硬件系统可靠性研究的“工程派代表”！   📝 地位：IEEE 出版的可靠性领域权威期刊，工程应用导向鲜明，认可度稳居头部。   📝 影响力：IF 5.7、CiteScore 11.6，聚焦 **失效物理、寿命预测、网络可靠性** 等方向"
+      }
+    },
+    "wechat_connectivity": {
+      "status": "success",
+      "current_ip": "38.49.57.21"
+    },
+    "arxiv": {
+      "group_main": {
+        "stats": {
+          "ai": 57,
+          "cv": 177,
+          "lg": 26,
+          "iv": 2
+        },
+        "cards_after_filter": 32,
+        "filtered_text_len": 65160
+      },
+      "group_audio": {
+        "stats": {
+          "sd": 5,
+          "as": 2
+        },
+        "cards_after_filter": 7,
+        "filtered_text_len": 11210
+      },
+      "group_hcro": {
+        "stats": {
+          "hc": 18,
+          "ro": 40,
+          "nc": 1
+        },
+        "cards_after_filter": 21,
+        "filtered_text_len": 43301
+      }
+    },
+    "journal": {
+      "md_count": 1,
+      "png_count": 5,
+      "image_url_count": 5
+    },
+    "article_export": {
+      "status": "success",
+      "export_dir": "/home/heheheh/Documents/n8n/arxiv_crawler_ai_enhanced/data/wechat_manual_articles/2026-03-27",
+      "manifest_path": "/home/heheheh/Documents/n8n/arxiv_crawler_ai_enhanced/data/wechat_manual_articles/2026-03-27/manifest.json",
+      "articles_count": 4
+    },
+    "git_sync": {
+      "status": "warning",
+      "message": "未配置 GIT_TOKEN 或 origin 凭据不可用，仅完成本地提交"
+    },
+    "xiaohongshu_copy": {
+      "status": "success",
+      "model_name": "qwen/Qwen3-14B-FP8",
+      "lease_id": "0022e474-40c5-4958-8883-3786eaa877d5",
+      "content": "标题：IEEE TR：可靠性研究的“工程硬核担当”  \n正文：作为 IEEE 可靠性学会主办的顶刊，IEEE TR 稳居 **中科院2区、JCR多学科Q1**，是软硬件系统可靠性研究的“工程派代表”！  \n📝 地位：IEEE 出版的可靠性领域权威期刊，工程应用导向鲜明，认可度稳居头部。  \n📝 影响力：IF 5.7、CiteScore 11.6，聚焦 **失效物理、寿命预测、网络可靠性** 等方向，是工业界与学术圈的“双栖流量”。  \n📝 非OA：非开放获取，但投稿系统稳定，工程验证类论文优先录用。  \n\n✅ 收什么？（理论+智能）  \n可靠性建模与评估：失效物理、寿命预测、退化建模是核心方向。  \n数据驱动可靠性：PHM（预测与健康管理）、故障诊断、工业数据验证是重点。  \n系统与网络可靠性：复杂电子系统、网络可用性、任务成功分析是热门。  \n工程验证优先：强调真实工业数据、寿命试验或平台验证，算法需结合可靠性问题。  \n\n❌ 拒什么？（精准避雷）  \n纯算法改进：只改模型不解决可靠性问题，建议投AI类刊。  \n虚无验证：无真实数据或平台验证，建议投理论类刊。  \n脱离工程：不结合工业场景或系统问题，建议投交叉领域期刊。  \n泛泛而谈：缺乏明确可靠性机理或评估框架，建议细化研究方向。"
+    }
+  }
+}

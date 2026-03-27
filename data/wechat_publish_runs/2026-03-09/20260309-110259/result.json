@@ -1,0 +1,104 @@
+{
+  "status": "failed",
+  "date": "2026-03-09",
+  "articles_count": 0,
+  "draft_media_id": null,
+  "article_titles": [],
+  "diagnostics": {
+    "modules": {
+      "arxiv": {
+        "status": "success",
+        "group_main": {
+          "stats": {
+            "ai": 22,
+            "cv": 169,
+            "lg": 29,
+            "iv": 8
+          },
+          "cards_after_filter": 38,
+          "filtered_text_len": 84071
+        },
+        "group_audio": {
+          "stats": {
+            "sd": 8,
+            "as": 3
+          },
+          "cards_after_filter": 11,
+          "filtered_text_len": 20359
+        },
+        "group_hcro": {
+          "stats": {
+            "hc": 23,
+            "ro": 68,
+            "nc": 1
+          },
+          "cards_after_filter": 21,
+          "filtered_text_len": 40108
+        }
+      },
+      "journal": {
+        "status": "success",
+        "md_count": 0,
+        "png_count": 0,
+        "image_url_count": 0
+      }
+    },
+    "steps": {
+      "wechat_connectivity": {
+        "status": "success",
+        "current_ip": "134.185.94.52"
+      },
+      "draft_publish": {
+        "status": "failed",
+        "error": "add draft failed: {'errcode': 40007, 'errmsg': 'invalid media_id hint: [D5vhRa044136-0] rid: 69ae38a1-07d0f8dd-14e8e26a'}"
+      },
+      "ai_enhance": {
+        "status": "pending"
+      },
+      "git_sync": {
+        "status": "pending"
+      },
+      "xiaohongshu_copy": {
+        "status": "pending"
+      }
+    },
+    "wechat_connectivity": {
+      "status": "success",
+      "current_ip": "134.185.94.52"
+    },
+    "arxiv": {
+      "group_main": {
+        "stats": {
+          "ai": 22,
+          "cv": 169,
+          "lg": 29,
+          "iv": 8
+        },
+        "cards_after_filter": 38,
+        "filtered_text_len": 84071
+      },
+      "group_audio": {
+        "stats": {
+          "sd": 8,
+          "as": 3
+        },
+        "cards_after_filter": 11,
+        "filtered_text_len": 20359
+      },
+      "group_hcro": {
+        "stats": {
+          "hc": 23,
+          "ro": 68,
+          "nc": 1
+        },
+        "cards_after_filter": 21,
+        "filtered_text_len": 40108
+      }
+    },
+    "journal": {
+      "md_count": 0,
+      "png_count": 0,
+      "image_url_count": 0
+    }
+  }
+}

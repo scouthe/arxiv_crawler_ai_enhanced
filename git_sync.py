@@ -16,8 +16,8 @@ if _DOTENV_PATH.exists():
 
 def run_git_sync_internal(today_str: str | None = None) -> dict:
     """
-    同步 data/file-list/papers.db 到 git_repo 并提交推送。
-    默认行为与原 /run-git-sync 接口保持一致。
+    同步 data/file-list 到 git_repo 并提交推送。
+    默认行为与原 /run-git-sync 接口保持一致，但显式排除 papers.db。
     """
     if today_str is None:
         today_str = date.today().strftime("%Y-%m-%d")
@@ -38,12 +38,9 @@ def run_git_sync_internal(today_str: str | None = None) -> dict:
 
     src_data = src_root / "data"
     src_assets = src_root / "assets" / "file-list.txt"
-    src_db = src_root / "papers.db"
-
     dest_data = git_repo / "data"
     dest_assets = git_repo / "assets"
-    dest_db = git_repo / "papers.db"
-    stage_targets = ["data", "assets/file-list.txt", "papers.db"]
+    stage_targets = ["data", "assets/file-list.txt"]
 
     if not src_root.exists():
         return {"status": "error", "message": f"src_root 不存在: {src_root}"}
@@ -54,10 +51,6 @@ def run_git_sync_internal(today_str: str | None = None) -> dict:
     if same_repo_mode:
         print("ℹ️ GIT_SYNC_SRC_ROOT 与 GIT_SYNC_REPO_PATH 相同，跳过镜像复制，直接在当前仓库提交。")
     else:
-        if src_db.exists():
-            shutil.copy2(src_db, dest_db)
-            print("✅ papers.db 已更新到 git_repo")
-
         if src_assets.exists():
             dest_assets.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src_assets, dest_assets / "file-list.txt")
@@ -87,6 +80,8 @@ def run_git_sync_internal(today_str: str | None = None) -> dict:
         subprocess.run(["git", "config", "--global", "--add", "safe.directory", str(git_repo)], check=True)
         subprocess.run(["git", "config", "user.email", "bot@n8n.docker"], cwd=git_repo, check=True)
         subprocess.run(["git", "config", "user.name", "ArxivBot"], cwd=git_repo, check=True)
+        # papers.db 已被 .gitignore 忽略，但如果用户此前手动 stage 过，也要在自动提交里剔除。
+        subprocess.run(["git", "restore", "--staged", "--", "papers.db"], cwd=git_repo, check=False)
         # 仅提交数据相关路径，避免将仓库中其他改动一起提交。
         subprocess.run(["git", "add", "-A", "--", *stage_targets], cwd=git_repo, check=True)
 

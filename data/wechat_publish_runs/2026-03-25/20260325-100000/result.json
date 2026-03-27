@@ -1,0 +1,56 @@
+{
+  "status": "failed",
+  "date": "2026-03-25",
+  "articles_count": 0,
+  "draft_media_id": null,
+  "article_titles": [],
+  "diagnostics": {
+    "modules": {
+      "arxiv": {
+        "status": "pending"
+      },
+      "journal": {
+        "status": "pending"
+      }
+    },
+    "steps": {
+      "wechat_connectivity": {
+        "status": "failed",
+        "errcode": 40164,
+        "errmsg": "invalid ip 1.192.34.183 ipv6 ::ffff:1.192.34.183, not in whitelist rid: 69c341a0-5b4544b0-3a1f8079",
+        "current_ip": "38.49.57.21",
+        "hinted_ip": "1.192.34.183",
+        "raw_data": {
+          "errcode": 40164,
+          "errmsg": "invalid ip 1.192.34.183 ipv6 ::ffff:1.192.34.183, not in whitelist rid: 69c341a0-5b4544b0-3a1f8079"
+        }
+      },
+      "article_export": {
+        "status": "pending"
+      },
+      "draft_publish": {
+        "status": "pending"
+      },
+      "ai_enhance": {
+        "status": "pending"
+      },
+      "git_sync": {
+        "status": "pending"
+      },
+      "xiaohongshu_copy": {
+        "status": "pending"
+      }
+    },
+    "wechat_connectivity": {
+      "status": "failed",
+      "errcode": 40164,
+      "errmsg": "invalid ip 1.192.34.183 ipv6 ::ffff:1.192.34.183, not in whitelist rid: 69c341a0-5b4544b0-3a1f8079",
+      "current_ip": "38.49.57.21",
+      "hinted_ip": "1.192.34.183",
+      "raw_data": {
+        "errcode": 40164,
+        "errmsg": "invalid ip 1.192.34.183 ipv6 ::ffff:1.192.34.183, not in whitelist rid: 69c341a0-5b4544b0-3a1f8079"
+      }
+    }
+  }
+}
