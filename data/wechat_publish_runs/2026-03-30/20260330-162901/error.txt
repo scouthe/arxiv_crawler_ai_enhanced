@@ -1,0 +1,1 @@
+draft publish failed: add draft failed: {'errcode': 40007, 'errmsg': 'invalid media_id hint: [csSxSa044078-3] rid: 69ca34b0-4f3c3929-53b2e600'}

@@ -1,0 +1,136 @@
+{
+  "status": "success",
+  "date": "2026-03-30",
+  "articles_count": 4,
+  "draft_media_id": "G4WnkOWFcimZ2-CdMbaq1TAo7WOIN8OQMyssaysANAAbPhEKoiNv3I63hphteZ1i",
+  "article_titles": [
+    "中科院2区、网络与服务管理领域JCR Q1期刊：IEEE Transactions on Network and Ser...",
+    "人工智能，计算机视觉，机器学习， 图像和视频处理论文速递--(2026-03-30)",
+    "声音，音频和语音处理论文速递--(2026-03-30)",
+    "人机交互，机器人技术论文速递--(2026-03-30)"
+  ],
+  "diagnostics": {
+    "modules": {
+      "arxiv": {
+        "status": "success",
+        "group_main": {
+          "stats": {
+            "ai": 8,
+            "cv": 133,
+            "lg": 22,
+            "iv": 5
+          },
+          "cards_after_filter": 33,
+          "filtered_text_len": 70438
+        },
+        "group_audio": {
+          "stats": {
+            "sd": 6,
+            "as": 0
+          },
+          "cards_after_filter": 6,
+          "filtered_text_len": 11658
+        },
+        "group_hcro": {
+          "stats": {
+            "hc": 17,
+            "ro": 24,
+            "nc": 1
+          },
+          "cards_after_filter": 21,
+          "filtered_text_len": 44671
+        }
+      },
+      "journal": {
+        "status": "success",
+        "md_count": 1,
+        "png_count": 5,
+        "image_url_count": 5
+      }
+    },
+    "steps": {
+      "wechat_connectivity": {
+        "status": "success",
+        "current_ip": "38.49.57.21"
+      },
+      "article_export": {
+        "status": "success",
+        "export_dir": "/home/heheheh/Documents/n8n/arxiv_crawler_ai_enhanced/data/wechat_manual_articles/2026-03-30",
+        "manifest_path": "/home/heheheh/Documents/n8n/arxiv_crawler_ai_enhanced/data/wechat_manual_articles/2026-03-30/manifest.json",
+        "articles_count": 4
+      },
+      "draft_publish": {
+        "status": "success",
+        "media_id": "G4WnkOWFcimZ2-CdMbaq1TAo7WOIN8OQMyssaysANAAbPhEKoiNv3I63hphteZ1i",
+        "articles_count": 4
+      },
+      "ai_enhance": {
+        "status": "success"
+      },
+      "git_sync": {
+        "status": "warning",
+        "message": "未配置 GIT_TOKEN 或 origin 凭据不可用，仅完成本地提交"
+      },
+      "xiaohongshu_copy": {
+        "status": "success",
+        "model_name": "qwen/Qwen3-14B-FP8",
+        "lease_id": "13864817-3151-436f-ae77-05d01b089ea4",
+        "content_preview": "标题：IEEE TNSM：网络管理界的“Q1顶刊天花板”   正文：作为 IEEE 通信学会主办的王牌期刊，TNSM 是中科院2区、JCR Q1的“双料冠军”，IF 5.4+ CiteScore 10.5，堪称网络与服务管理领域的“学术风向标”！   📝 地位：IEEE Transactions 系列中的“硬核代表”，专注网络管理模型、服务保障、通信软件等前沿方向。   📝 影响力：覆盖云网融合、"
+      }
+    },
+    "wechat_connectivity": {
+      "status": "success",
+      "current_ip": "38.49.57.21"
+    },
+    "arxiv": {
+      "group_main": {
+        "stats": {
+          "ai": 8,
+          "cv": 133,
+          "lg": 22,
+          "iv": 5
+        },
+        "cards_after_filter": 33,
+        "filtered_text_len": 70438
+      },
+      "group_audio": {
+        "stats": {
+          "sd": 6,
+          "as": 0
+        },
+        "cards_after_filter": 6,
+        "filtered_text_len": 11658
+      },
+      "group_hcro": {
+        "stats": {
+          "hc": 17,
+          "ro": 24,
+          "nc": 1
+        },
+        "cards_after_filter": 21,
+        "filtered_text_len": 44671
+      }
+    },
+    "journal": {
+      "md_count": 1,
+      "png_count": 5,
+      "image_url_count": 5
+    },
+    "article_export": {
+      "status": "success",
+      "export_dir": "/home/heheheh/Documents/n8n/arxiv_crawler_ai_enhanced/data/wechat_manual_articles/2026-03-30",
+      "manifest_path": "/home/heheheh/Documents/n8n/arxiv_crawler_ai_enhanced/data/wechat_manual_articles/2026-03-30/manifest.json",
+      "articles_count": 4
+    },
+    "git_sync": {
+      "status": "warning",
+      "message": "未配置 GIT_TOKEN 或 origin 凭据不可用，仅完成本地提交"
+    },
+    "xiaohongshu_copy": {
+      "status": "success",
+      "model_name": "qwen/Qwen3-14B-FP8",
+      "lease_id": "13864817-3151-436f-ae77-05d01b089ea4",
+      "content": "标题：IEEE TNSM：网络管理界的“Q1顶刊天花板”  \n正文：作为 IEEE 通信学会主办的王牌期刊，TNSM 是中科院2区、JCR Q1的“双料冠军”，IF 5.4+ CiteScore 10.5，堪称网络与服务管理领域的“学术风向标”！  \n📝 地位：IEEE Transactions 系列中的“硬核代表”，专注网络管理模型、服务保障、通信软件等前沿方向。  \n📝 影响力：覆盖云网融合、边缘计算、SDN等热点，发文量稳定（年均467篇），是工程落地与理论创新的“双栖平台”。  \n📝 开放模式：Hybrid期刊，可选传统出版或OA（2026年APC 2800美元），传播力与学术价值并存。  \n\n✅ 收什么？（理论+智能）  \n**理论创新+系统验证**：热衷“网络管理模型”“服务保障机制”“资源优化算法”等方向，尤其欢迎有真实网络环境实验、性能评估与可扩展性分析的研究。  \n**新兴技术落地**：SDN/NFV、边缘计算、AI驱动的网络运维、服务协同管理是热门赛道，强调“理论+工程”双验证。  \n**跨学科融合**：网络与服务管理+机器学习、区块链、5G/6G等交叉领域，需体现实际应用场景的创新价值。  \n\n❌ 拒什么？（精准避雷）  \n**纯理论无实验**：仅有算法设计或模型推导，缺乏真实网络系统验证（建议投纯理论期刊）。  \n**工程实现无理论**：只展示硬件部署或代码实现，无管理机制改进或性能提升的量化分析（建议投应用类刊）。  \n**泛泛而谈**：未聚焦网络管理核心问题（如可靠性、服务质量、资源优化），或缺乏创新性与可扩展性讨论。"
+    }
+  }
+}

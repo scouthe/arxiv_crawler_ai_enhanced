@@ -1,0 +1,1 @@
+ai enhance failed: ai_enhance_only returned False

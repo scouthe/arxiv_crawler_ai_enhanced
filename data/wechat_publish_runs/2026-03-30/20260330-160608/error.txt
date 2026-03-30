@@ -1,0 +1,1 @@
+微信接口连通性预检失败：疑似 IP 白名单限制。 errcode=40164, errmsg=invalid ip 1.192.33.44 ipv6 ::ffff:1.192.33.44, not in whitelist rid: 69ca2ef1-50d307ea-77ce89f7, 当前公网IP=38.49.57.21, 微信返回IP=1.192.33.44。请将该IP加入白名单后重试。
