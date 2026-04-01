@@ -14,17 +14,22 @@ PROFILE_HTML = """<section class="mp_profile_iframe_wrp" nodeleaf="">
   <mp-common-profile class="js_uneditable custom_select_card mp_profile_iframe"
     data-pluginname="mpprofile"
     data-nickname="璇玑枢"
-    data-alias="mizhiNo1"
     data-from="0"
-    data-headimg="http://mmbiz.qpic.cn/mmbiz_png/pdoYWlyPiaWFPmEWuRgRQVk08RkmAVKAxKSLHkiakfKDSScOp0iaH99L3NRvcicuVK6mtTibD9GNiaG5fFFCx956PZOA/0?wx_fmt=png"
-    data-signature="最干货、暖心、有用的研究生学习类公众号，提供求学期间的经验分享、学习资源、生活分享，旨在帮助读研学生解疑答惑和真正提升自我！"
-    data-id="MzU5MTU5NTI3MQ=="
+    data-headimg="http://mmbiz.qpic.cn/sz_mmbiz_png/Bps2mXQvSQiaFnHeBCs7xpwn7nA5icgHYLcsrWEbajjxSLMRBhIhhFqj8m9VSAP0vkAcnS2O3PbKUic5H1M2xKpDicyUic7d2iaqvJiaVDZWiacaLfQ/0?wx_fmt=png"
+    data-signature="期刊介绍，论文润色，深度学习，人工智能"
+    data-id="MzY4OTE0NjQwMA=="
     data-is_biz_ban="0"
     data-service_type="1"
-    data-verify_status="0">
+    data-verify_status="2">
   </mp-common-profile>
 </section>
-<section><span leaf=""><br></span></section>"""
+<section>
+  <span leaf=""><br></span>
+</section>
+<p style="display: none;">
+  <mp-style-type data-value="3">
+  </mp-style-type>
+</p>"""
 HEJI_HTML = '<section style="background:#f3f3f3;padding:18px 20px 14px 20px;margin:16px 0;"><span leaf=""><a class="normal_text_link" target="_blank" style="font-size: 20px;line-height: 1.6;color: rgb(17, 17, 17);font-weight: 600;text-decoration: none;display: inline-block;" href="https://mp.weixin.qq.com/s?__biz=MzU5MTU5NTI3MQ==&amp;mid=2247486131&amp;idx=1&amp;sn=68a45957b64be87716f4275a3491ee4d&amp;scene=21#wechat_redirect" textvalue="科研期刊分类合集（持续更新）" data-itemshowtype="0" linktype="text" data-linktype="2">科研期刊分类合集（持续更新）</a></span><section style="width:72px;height:3px;background:#2b6ff2;margin:10px 0 12px 0;"><span leaf=""><br></span></section><section style="font-size:14px;line-height:1.8;color:#9aa0a6;"><span leaf="">合集对已介绍的多本科研期刊按研究方向与期刊定位进行汇总与分类。</span></section></section>'
 
 
