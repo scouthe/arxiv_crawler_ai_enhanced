@@ -30,7 +30,19 @@ PROFILE_HTML = """<section class="mp_profile_iframe_wrp" nodeleaf="">
   <mp-style-type data-value="3">
   </mp-style-type>
 </p>"""
-HEJI_HTML = '<section style="background:#f3f3f3;padding:18px 20px 14px 20px;margin:16px 0;"><span leaf=""><a class="normal_text_link" target="_blank" style="font-size: 20px;line-height: 1.6;color: rgb(17, 17, 17);font-weight: 600;text-decoration: none;display: inline-block;" href="https://mp.weixin.qq.com/s?__biz=MzU5MTU5NTI3MQ==&amp;mid=2247486131&amp;idx=1&amp;sn=68a45957b64be87716f4275a3491ee4d&amp;scene=21#wechat_redirect" textvalue="科研期刊分类合集（持续更新）" data-itemshowtype="0" linktype="text" data-linktype="2">科研期刊分类合集（持续更新）</a></span><section style="width:72px;height:3px;background:#2b6ff2;margin:10px 0 12px 0;"><span leaf=""><br></span></section><section style="font-size:14px;line-height:1.8;color:#9aa0a6;"><span leaf="">合集对已介绍的多本科研期刊按研究方向与期刊定位进行汇总与分类。</span></section></section>'
+HEJI_HTML = """<section style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);margin: 16px 0px;padding: 18px 20px 14px;outline: 0px;max-width: 100%;box-sizing: border-box !important;overflow-wrap: break-word !important;color: rgba(0, 0, 0, 0.9);font-family: -apple-system-font, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;PingFang SC&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif;font-size: 16px;font-style: normal;font-variant-ligatures: normal;font-variant-caps: normal;font-weight: 400;letter-spacing: 0.544px;orphans: 2;text-align: justify;text-indent: 0px;text-transform: none;widows: 2;word-spacing: 0px;-webkit-text-stroke-width: 0px;white-space: normal;text-decoration-thickness: initial;text-decoration-style: initial;text-decoration-color: initial;background: rgb(243, 243, 243);visibility: visible;" data-pm-slice="0 0 []">
+  <span leaf="" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);margin: 0px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box !important;overflow-wrap: break-word !important;visibility: visible;"><a class="normal_text_link" target="_blank" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);margin: 0px;padding: 0px;outline: 0px;color: rgb(17, 17, 17);text-decoration: none;-webkit-user-drag: none;cursor: default;max-width: 100%;font-size: 20px;line-height: 1.6;font-weight: 600;display: inline-block;visibility: visible;box-sizing: border-box !important;overflow-wrap: break-word !important;" href="https://mp.weixin.qq.com/s?__biz=MzY4OTE0NjQwMA==&amp;mid=2247485611&amp;idx=1&amp;sn=e1f0e99a075476bd4b9e4ad40a3adccf&amp;source=41&amp;poc_token=HLtbuWmjCxPZuZHXYo-qKhtwRiz7oN3d1HegSgJG&amp;scene=21#wechat_redirect" textvalue="科研期刊分类合集（持续更新）" data-itemshowtype="0" linktype="text" data-linktype="2">科研期刊分类合集（持续更新）</a></span>
+  <section style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);margin: 10px 0px 12px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box !important;overflow-wrap: break-word !important;width: 72px;height: 3px;background: rgb(43, 111, 242);text-align: justify;visibility: visible;">
+    <span leaf="" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);margin: 0px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box !important;overflow-wrap: break-word !important;visibility: visible;"><br></span>
+  </section>
+  <section style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);margin: 0px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box !important;overflow-wrap: break-word !important;font-size: 14px;line-height: 1.8;color: rgb(154, 160, 166);text-align: justify;visibility: visible;">
+    <span leaf="" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);margin: 0px;padding: 0px;outline: 0px;max-width: 100%;box-sizing: border-box !important;overflow-wrap: break-word !important;visibility: visible;">合集对已介绍的多本科研期刊按研究方向与期刊定位进行汇总与分类。</span>
+  </section>
+</section>
+<p style="display: none;">
+  <mp-style-type data-value="3">
+  </mp-style-type>
+</p>"""
 
 
 def load_journal_assets(base_dir: Path, date_str: str) -> tuple[list[Path], list[Path]]:
