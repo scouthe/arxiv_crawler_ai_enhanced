@@ -11,6 +11,7 @@
 
 import os
 import sys
+from contextlib import contextmanager
 from datetime import date, timedelta
 from pathlib import Path
 from dotenv import load_dotenv
@@ -23,6 +24,103 @@ if os.path.exists('.env'):
 sys.path.append(os.path.join(os.path.dirname(__file__), 'arxiv_crawler'))
 
 from arxiv_crawler import ArxivScraper
+
+
+def _is_true(raw: str | None, default: bool = False) -> bool:
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _looks_local_url(url: str) -> bool:
+    lowered = (url or "").strip().lower()
+    return (
+        "127.0.0.1" in lowered
+        or "localhost" in lowered
+        or ":8900" in lowered
+        or ":9202" in lowered
+    )
+
+
+def _is_placeholder_api_key(api_key: str) -> bool:
+    lowered = (api_key or "").strip().lower()
+    return lowered in {"", "vllm-local", "local", "test", "dummy", "none"}
+
+
+def _build_official_fallback_config(current_model_name: str) -> dict:
+    """
+    构建云端官方回退配置。
+
+    支持优先级（从高到低）：
+    1) OFFICIAL_OPENAI_*
+    2) CLOUD_OPENAI_*
+    3) OPENAI_*（仅在明显不是本地地址/占位key时使用）
+    """
+    env_base_url = os.environ.get("OPENAI_BASE_URL", "").strip()
+    env_api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+
+    official_base_url = (
+        os.environ.get("OFFICIAL_OPENAI_BASE_URL")
+        or os.environ.get("CLOUD_OPENAI_BASE_URL")
+        or (env_base_url if env_base_url and not _looks_local_url(env_base_url) else "")
+    )
+    official_api_key = (
+        os.environ.get("OFFICIAL_OPENAI_API_KEY")
+        or os.environ.get("CLOUD_OPENAI_API_KEY")
+        or (env_api_key if not _is_placeholder_api_key(env_api_key) else "")
+    )
+    official_model_name = (
+        os.environ.get("OFFICIAL_MODEL_NAME")
+        or os.environ.get("CLOUD_MODEL_NAME")
+        or current_model_name
+        or "deepseek-chat"
+    )
+
+    return {
+        "base_url": official_base_url.strip(),
+        "api_key": official_api_key.strip(),
+        "model_name": official_model_name.strip(),
+    }
+
+
+@contextmanager
+def _temporary_env(overrides: dict[str, str]):
+    old_values = {}
+    missing_keys = []
+    for k, v in overrides.items():
+        if k in os.environ:
+            old_values[k] = os.environ[k]
+        else:
+            missing_keys.append(k)
+        os.environ[k] = v
+    try:
+        yield
+    finally:
+        for k in missing_keys:
+            os.environ.pop(k, None)
+        for k, v in old_values.items():
+            os.environ[k] = v
+
+
+def _run_ai_enhance_for_provider(
+    scraper: ArxivScraper,
+    crawl_date: str,
+    model_name: str,
+    language: str,
+    max_workers: int,
+    provider: str,
+) -> None:
+    print(f"生成AI增强的JSONL文件... provider={provider}, model={model_name}")
+    scraper.to_ai_enhanced_jsonl(
+        output_dir="./data",
+        filename_format="%Y-%m-%d",
+        model_name=model_name,
+        language=language,
+        max_workers=max_workers,
+        provider=provider,
+    )
+    print(f"更新assets/file-list.txt...")
+    update_file_list(crawl_date)
 
 def crawl_only(all=False, date_set=None):
     """
@@ -111,6 +209,7 @@ def ai_enhance_only(date_set=None):
     env_model_name = os.environ.get("MODEL_NAME", "")
     env_language = os.environ.get("LANGUAGE", "")
     env_provider = os.environ.get("PROVIDER", "official")
+    env_auto_fallback = _is_true(os.environ.get("AUTO_FALLBACK_TO_OFFICIAL"), True)
     
     # 打印环境变量，隐藏敏感信息
     print("\n--- 环境变量配置 ---")
@@ -122,6 +221,7 @@ def ai_enhance_only(date_set=None):
     print(f"MODEL_NAME: {env_model_name if env_model_name else '[NOT SET]'}")
     print(f"LANGUAGE: {env_language if env_language else '[NOT SET]'}")
     print(f"PROVIDER: {env_provider}")
+    print(f"AUTO_FALLBACK_TO_OFFICIAL: {env_auto_fallback}")
     print("------------------\n")
     
     # 优先使用函数参数，其次使用环境变量，最后使用默认值
@@ -137,23 +237,60 @@ def ai_enhance_only(date_set=None):
             date_until=crawl_date
         )
         
-        # 生成AI增强的JSONL文件
-        print(f"生成AI增强的JSONL文件...")
-        scraper.to_ai_enhanced_jsonl(
-            output_dir="./data",
-            filename_format="%Y-%m-%d",
-            model_name=env_model_name if env_model_name else "deepseek-chat",
-            language=env_language if env_language else "Chinese",
-            max_workers=max_workers,
-            provider=env_provider,
-        )
-        
-        # 更新assets/file-list.txt（添加AI增强的JSONL文件）
-        print(f"更新assets/file-list.txt...")
-        update_file_list(crawl_date)
-        
-        print(f"AI增强完成！")
-        return True
+        model_name = env_model_name if env_model_name else "deepseek-chat"
+        language = env_language if env_language else "Chinese"
+        provider = (env_provider or "official").strip().lower()
+
+        try:
+            _run_ai_enhance_for_provider(
+                scraper=scraper,
+                crawl_date=crawl_date,
+                model_name=model_name,
+                language=language,
+                max_workers=max_workers,
+                provider=provider,
+            )
+            print("AI增强完成！")
+            return True
+        except Exception as local_error:
+            if provider != "local" or not env_auto_fallback:
+                raise
+
+            fallback_cfg = _build_official_fallback_config(model_name)
+            fallback_base_url = fallback_cfg["base_url"]
+            fallback_api_key = fallback_cfg["api_key"]
+            fallback_model_name = fallback_cfg["model_name"]
+
+            if not fallback_base_url or _looks_local_url(fallback_base_url):
+                raise RuntimeError(
+                    "本地增强失败，且未配置有效云端地址。请设置 OFFICIAL_OPENAI_BASE_URL（或 CLOUD_OPENAI_BASE_URL）。"
+                ) from local_error
+            if _is_placeholder_api_key(fallback_api_key):
+                raise RuntimeError(
+                    "本地增强失败，且未配置有效云端密钥。请设置 OFFICIAL_OPENAI_API_KEY（或 CLOUD_OPENAI_API_KEY）。"
+                ) from local_error
+
+            print(
+                f"本地AI增强失败，将自动切换到云端重试。"
+                f" cloud_base_url={fallback_base_url}, cloud_model={fallback_model_name}"
+            )
+            with _temporary_env(
+                {
+                    "OPENAI_BASE_URL": fallback_base_url,
+                    "OPENAI_API_KEY": fallback_api_key,
+                    "PROVIDER": "official",
+                }
+            ):
+                _run_ai_enhance_for_provider(
+                    scraper=scraper,
+                    crawl_date=crawl_date,
+                    model_name=fallback_model_name,
+                    language=language,
+                    max_workers=max_workers,
+                    provider="official",
+                )
+            print("AI增强完成！（本地失败后已自动切到云端）")
+            return True
     except Exception as e:
         print(f"生成AI增强的JSONL文件失败: {e}")
         import traceback
