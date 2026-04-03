@@ -49,8 +49,14 @@ def load_journal_assets(base_dir: Path, date_str: str) -> tuple[list[Path], list
     # Expected layout: <base_dir>/<YYYY>/<MM>/<YYYY-MM-DD>/
     year, month, _day = date_str.split("-")
     day_dir = base_dir / year / month / date_str
+    if not day_dir.exists():
+        raise FileNotFoundError(f"journal assets directory not found: {day_dir}")
     md_files = sorted(day_dir.glob("*.md"))
     png_files = sorted(day_dir.glob("*.png"))
+    if not md_files:
+        raise FileNotFoundError(f"journal markdown not found in: {day_dir}")
+    if not png_files:
+        raise FileNotFoundError(f"journal images not found in: {day_dir}")
     return md_files, png_files
 
 
