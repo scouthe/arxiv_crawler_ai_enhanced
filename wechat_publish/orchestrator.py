@@ -17,6 +17,7 @@ from .models import (
     WechatConnectivityPrecheckError,
 )
 from .wechat_client import WechatClient, WechatAPIError, get_public_ip
+from .xiaohongshu_copy import generate_xiaohongshu_copy_from_journal
 
 
 LOGGER = logging.getLogger("wechat_publish.orchestrator")
@@ -164,6 +165,7 @@ def _init_diagnostics(
         "draft_publish": {"status": "pending"},
         "ai_enhance": {"status": "pending"},
         "git_sync": {"status": "pending"},
+        "xiaohongshu_copy": {"status": "pending"},
     }
     return {"modules": modules, "steps": steps}
 
@@ -192,6 +194,7 @@ def run_pipeline(
     articles: list[DraftArticle] = []
     arxiv_success = False
     journal_success = False
+    journal_markdown_for_xhs = ""
 
     if not dry_run:
         try:
@@ -234,6 +237,7 @@ def run_pipeline(
         try:
             md_files, png_files = load_journal_assets(config.assets_dir, config.date_str)
             md_texts = [x.read_text(encoding="utf-8") for x in md_files]
+            journal_markdown_for_xhs = "\n\n".join(md_texts)
 
             journal_thumb_media_id = config.thumb_id_journal
             if dry_run:
@@ -325,6 +329,30 @@ def run_pipeline(
         diagnostics["git_sync"] = {"status": "error", "message": str(exc)}
         diagnostics["steps"]["git_sync"] = {"status": "failed", "error": str(exc)}
         LOGGER.exception("git同步执行失败")
+
+    if journal_success:
+        try:
+            xhs_model_name = os.environ.get("XHS_MODEL_NAME", "qwen/Qwen3-14B-FP8")
+            xhs_result = generate_xiaohongshu_copy_from_journal(
+                journal_markdown_for_xhs,
+                model_name=xhs_model_name,
+            )
+            xhs_content = str(xhs_result.get("content", ""))
+            diagnostics["steps"]["xiaohongshu_copy"] = {
+                "status": "success",
+                "provider": xhs_result.get("provider"),
+                "model_name": xhs_result.get("model_name"),
+                "lease_id": xhs_result.get("lease_id"),
+                "content_preview": xhs_content[:200],
+            }
+            diagnostics["xiaohongshu_copy"] = xhs_result
+        except Exception as exc:
+            diagnostics["steps"]["xiaohongshu_copy"] = {"status": "failed", "error": str(exc)}
+            diagnostics["xiaohongshu_copy"] = {"status": "failed", "error": str(exc)}
+            LOGGER.exception("小红书文案生成失败")
+    else:
+        reason = "journal_module_disabled" if not run_journal_module else "journal_module_failed"
+        diagnostics["steps"]["xiaohongshu_copy"] = {"status": "skipped", "reason": reason}
 
     enabled_modules_count = int(run_arxiv_module) + int(run_journal_module)
     succeeded_modules_count = int(arxiv_success) + int(journal_success)

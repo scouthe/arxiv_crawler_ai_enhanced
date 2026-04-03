@@ -278,6 +278,8 @@ def _build_summary_email(
     draft_step = steps.get("draft_publish", {}) if isinstance(steps.get("draft_publish", {}), dict) else {}
     ai_step = steps.get("ai_enhance", {}) if isinstance(steps.get("ai_enhance", {}), dict) else {}
     git_step = steps.get("git_sync", {}) if isinstance(steps.get("git_sync", {}), dict) else {}
+    xhs_step = steps.get("xiaohongshu_copy", {}) if isinstance(steps.get("xiaohongshu_copy", {}), dict) else {}
+    xhs_payload = diagnostics.get("xiaohongshu_copy", {}) if isinstance(diagnostics.get("xiaohongshu_copy", {}), dict) else {}
 
     precheck_info: dict[str, Any] = {}
     if precheck_error is not None:
@@ -316,9 +318,19 @@ def _build_summary_email(
             f"- draft_publish: {draft_step.get('status', 'unknown')}",
             f"- ai_enhance: {ai_step.get('status', 'unknown')}",
             f"- git_sync: {git_step.get('status', 'unknown')}",
+            f"- xiaohongshu_copy: {xhs_step.get('status', 'unknown')}",
             "",
         ]
     )
+    xhs_content = str(xhs_payload.get("content", "")).strip()
+    if xhs_content:
+        body += "\n".join(
+            [
+                "小红书文案正文:",
+                xhs_content,
+                "",
+            ]
+        )
     if precheck_info:
         body += "\n".join(
             [
