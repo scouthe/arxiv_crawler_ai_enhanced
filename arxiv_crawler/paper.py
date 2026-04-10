@@ -607,7 +607,7 @@ class PaperExporter:
             language (str, optional): 生成语言. Defaults to "Chinese".
             max_workers (int, optional): 最大并行数. Defaults to 1.
         """
-        from ai.enhance import enhance_jsonl_data
+        from ai.enhance import enhance_jsonl_data, ensure_ai_enhancement_quality
         
         import json
         
@@ -633,28 +633,35 @@ class PaperExporter:
             
             # 使用AI增强数据
             target_file = output_dir / f"{current_filename}_AI_enhanced_{language}.jsonl"
+            if target_file.exists():
+                target_file.unlink()
             # 读取临时文件，指定UTF-8编码
             with open(temp_file, "r", encoding="utf-8") as f:
                 data = [json.loads(line) for line in f]
             
             # 增强数据
-            enhanced_data = enhance_jsonl_data(data, model_name, language, max_workers, provider)
+            try:
+                enhanced_data = enhance_jsonl_data(data, model_name, language, max_workers, provider)
+                quality_stats = ensure_ai_enhancement_quality(
+                    enhanced_data,
+                    context=f"{current_filename}_AI_enhanced_{language}.jsonl",
+                )
+            finally:
+                if temp_file.exists():
+                    temp_file.unlink()
             
             # 保存结果
             with open(target_file, "w", encoding="utf-8") as f:
                 for item in enhanced_data:
                     f.write(json.dumps(item, ensure_ascii=False) + "\n")
-            
-            # 删除临时文件
-            if temp_file.exists():
-                temp_file.unlink()
 
             
             # 更新数据库中的AI内容
             self._update_ai_content(enhanced_data)
             
             self.console.log(
-                f"[bold green]Output {target_file.name} completed. {len(enhanced_data)} papers enhanced"
+                f"[bold green]Output {target_file.name} completed. "
+                f"{quality_stats['valid_count']} papers enhanced and quality-checked"
             )
     
     def _update_ai_content(self, enhanced_data):

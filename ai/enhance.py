@@ -17,7 +17,6 @@ import langchain_core.exceptions
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import (
     ChatPromptTemplate,
-    SystemMessagePromptTemplate,
     HumanMessagePromptTemplate,
 )
 from .structure import Structure
@@ -34,6 +33,89 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 # 读取模板文件
 template = open(os.path.join(current_dir, "template.txt"), "r").read()
 system = open(os.path.join(current_dir, "system.txt"), "r").read()
+
+DEFAULT_AI_FIELDS = {
+    "tldr": "Task description failed",
+    "motivation": "Motivation analysis unavailable",
+    "method": "Method extraction failed",
+    "result": "Result analysis unavailable",
+    "conclusion": "Conclusion extraction failed",
+}
+REQUIRED_AI_FIELDS = tuple(DEFAULT_AI_FIELDS.keys())
+
+
+def _render_system_prompt(language: str) -> str:
+    return system.replace("{language}", language)
+
+
+def _inspect_ai_payload(ai_payload: Dict | None) -> Dict[str, List[str]]:
+    missing_fields = []
+    placeholder_fields = []
+
+    if not isinstance(ai_payload, dict):
+        return {
+            "missing_fields": list(REQUIRED_AI_FIELDS),
+            "placeholder_fields": [],
+        }
+
+    for field in REQUIRED_AI_FIELDS:
+        value = ai_payload.get(field)
+        if not isinstance(value, str) or not value.strip():
+            missing_fields.append(field)
+        elif value == DEFAULT_AI_FIELDS[field]:
+            placeholder_fields.append(field)
+
+    return {
+        "missing_fields": missing_fields,
+        "placeholder_fields": placeholder_fields,
+    }
+
+
+def summarize_ai_quality(enhanced_data: List[Dict]) -> Dict:
+    invalid_items = []
+
+    for item in enhanced_data:
+        item_id = item.get("id", "unknown")
+        details = _inspect_ai_payload(item.get("AI"))
+        if details["missing_fields"] or details["placeholder_fields"]:
+            invalid_items.append(
+                {
+                    "id": item_id,
+                    "missing_fields": details["missing_fields"],
+                    "placeholder_fields": details["placeholder_fields"],
+                }
+            )
+
+    total = len(enhanced_data)
+    invalid_count = len(invalid_items)
+    return {
+        "total": total,
+        "valid_count": total - invalid_count,
+        "invalid_count": invalid_count,
+        "invalid_ratio": (invalid_count / total) if total else 0.0,
+        "sample_invalid_items": invalid_items[:5],
+    }
+
+
+def ensure_ai_enhancement_quality(enhanced_data: List[Dict], context: str = "") -> Dict:
+    stats = summarize_ai_quality(enhanced_data)
+    if stats["invalid_count"] > 0:
+        sample_text = "; ".join(
+            [
+                (
+                    f"{item['id']}"
+                    f"(missing={item['missing_fields']}, placeholders={item['placeholder_fields']})"
+                )
+                for item in stats["sample_invalid_items"]
+            ]
+        )
+        prefix = f"[{context}] " if context else ""
+        raise RuntimeError(
+            f"{prefix}AI enhancement quality check failed: "
+            f"{stats['invalid_count']}/{stats['total']} items contain default placeholder or missing AI fields. "
+            f"sample={sample_text}"
+        )
+    return stats
 
 def _extract_json(text: str) -> dict:
     text = text.strip()
@@ -254,13 +336,7 @@ def process_single_item(chain, item: Dict, language: str,provider) -> Dict:
     #     return None
 
     # Default structure with meaningful fallback values
-    default_ai_fields = {
-        "tldr": "Task description failed",
-        "motivation": "Motivation analysis unavailable",
-        "method": "Method extraction failed",
-        "result": "Result analysis unavailable",
-        "conclusion": "Conclusion extraction failed"
-    }
+    default_ai_fields = DEFAULT_AI_FIELDS.copy()
     
     try:
         response = None
@@ -417,8 +493,9 @@ def process_all_items(data: List[Dict], model_name: str = "deepseek-chat", langu
     try:
         processed_data = [None] * len(data)  # 预分配结果列表
 
+        system_prompt = _render_system_prompt(language)
         prompt_template = ChatPromptTemplate.from_messages([
-            SystemMessagePromptTemplate.from_template(system),
+            SystemMessage(content=system_prompt),
             HumanMessagePromptTemplate.from_template(template=template)
         ])
         parser = PydanticOutputParser(pydantic_object=Structure)
@@ -466,7 +543,7 @@ def process_all_items(data: List[Dict], model_name: str = "deepseek-chat", langu
             local_batch_workers = 6  # 固定每个实例并发为6
             fmt = parser.get_format_instructions()
             fmt_escaped = fmt.replace("{", "{{").replace("}", "}}")
-            system_with_format = system + "\n\n" + fmt_escaped
+            system_with_format = system_prompt + "\n\n" + fmt_escaped
 
             prompt_template_local = ChatPromptTemplate.from_messages([
                 SystemMessage(content=system_with_format),
