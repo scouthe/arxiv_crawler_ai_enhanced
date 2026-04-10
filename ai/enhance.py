@@ -1,4 +1,5 @@
 import os
+import ast
 import json
 import sys
 import re
@@ -11,7 +12,6 @@ import requests
 import dotenv
 import argparse
 from tqdm import tqdm
-from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.messages import SystemMessage, AIMessage
 import langchain_core.exceptions
 from langchain_openai import ChatOpenAI
@@ -117,7 +117,7 @@ def ensure_ai_enhancement_quality(enhanced_data: List[Dict], context: str = "") 
         )
     return stats
 
-def _extract_json(text: str) -> dict:
+def _extract_json_object_text(text: str) -> str:
     text = text.strip()
     # 兼容内容被整体 JSON 转义（如 "\"{...}\""）
     if (text.startswith('"') and text.endswith('"')) or (text.startswith("'") and text.endswith("'")):
@@ -134,16 +134,112 @@ def _extract_json(text: str) -> dict:
                 text = msg
     except Exception:
         pass
-    # 兼容 ```json ... ```
-    m = re.search(r"```json\s*(\{.*?\})\s*```", text, flags=re.S)
+    # 兼容 ```json ... ``` 或 ``` ... ```
+    m = re.search(r"```(?:json)?\s*(.*?)\s*```", text, flags=re.S | re.I)
     if m:
         text = m.group(1)
     # 兼容夹杂文本
     if not text.startswith("{"):
-        m = re.search(r"(\{.*\})", text, flags=re.S)
-        if m:
-            text = m.group(1)
-    return json.loads(text)
+        start = text.find("{")
+        end = text.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            text = text[start : end + 1]
+    return text.strip()
+
+
+def _iter_repaired_json_candidates(text: str):
+    seen = set()
+
+    def _remember(candidate: str):
+        candidate = candidate.strip()
+        if not candidate or candidate in seen:
+            return None
+        seen.add(candidate)
+        return candidate
+
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n").replace("\x00", "")
+    stripped_control = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", normalized)
+    escaped_backslashes = re.sub(r'\\([A-Za-z]{2,})', r"\\\\\1", stripped_control)
+    escaped_backslashes = re.sub(r'\\(?!["\\/bfnrtu])', r"\\\\", escaped_backslashes)
+
+    candidate = _remember(escaped_backslashes)
+    if candidate:
+        yield candidate
+
+    candidate = _remember(stripped_control)
+    if candidate:
+        yield candidate
+
+    candidate = _remember(normalized)
+    if candidate:
+        yield candidate
+
+    without_trailing_commas = re.sub(r",(\s*[}\]])", r"\1", escaped_backslashes)
+    candidate = _remember(without_trailing_commas)
+    if candidate:
+        yield candidate
+
+    normalized_quotes = (
+        without_trailing_commas.replace("“", '"')
+        .replace("”", '"')
+        .replace("’", "'")
+        .replace("‘", "'")
+    )
+    candidate = _remember(normalized_quotes)
+    if candidate:
+        yield candidate
+
+
+def _extract_json(text: str) -> dict:
+    text = _extract_json_object_text(text)
+    last_error = None
+
+    for candidate in _iter_repaired_json_candidates(text):
+        try:
+            data = json.loads(candidate)
+            if isinstance(data, dict):
+                return data
+        except Exception as exc:
+            last_error = exc
+
+        try:
+            data = ast.literal_eval(candidate)
+            if isinstance(data, dict):
+                return data
+        except Exception as exc:
+            last_error = exc
+
+    if last_error is not None:
+        raise last_error
+
+    raise ValueError("No JSON object found in model response")
+
+
+def _coerce_response_to_ai_payload(response, default_ai_fields: Dict[str, str]) -> Dict[str, str]:
+    if isinstance(response, Structure):
+        return response.model_dump()
+
+    response_text = response.content if isinstance(response, AIMessage) else str(response)
+    data = _extract_json(response_text)
+    obj = Structure.model_validate({**default_ai_fields, **data})
+    return obj.model_dump()
+
+
+def _should_retry_local_error(exc: Exception) -> bool:
+    if isinstance(exc, (json.JSONDecodeError, ValueError, SyntaxError)):
+        return True
+    if isinstance(exc, langchain_core.exceptions.OutputParserException):
+        return True
+    msg = str(exc).lower()
+    markers = [
+        "failed to parse",
+        "invalid json",
+        "expecting property name",
+        "invalid \\escape",
+        "unterminated string",
+        "json",
+    ]
+    return any(marker in msg for marker in markers)
 
 def is_sensitive(content: str) -> bool:
     """
@@ -339,8 +435,7 @@ def process_single_item(chain, item: Dict, language: str,provider) -> Dict:
     default_ai_fields = DEFAULT_AI_FIELDS.copy()
     
     try:
-        response = None
-        last_invoke_error = None
+        last_error = None
         max_attempts = 3 if provider == "local" else 1
         for attempt in range(1, max_attempts + 1):
             try:
@@ -349,37 +444,31 @@ def process_single_item(chain, item: Dict, language: str,provider) -> Dict:
                     "title": item['title'],
                     "abstract": item['summary']
                 })
-                break
+                item["AI"] = _coerce_response_to_ai_payload(response, default_ai_fields)
+                return item
             except Exception as invoke_error:
-                last_invoke_error = invoke_error
-                if (
-                    provider == "local"
-                    and _is_local_model_unloaded_error(invoke_error)
-                    and attempt < max_attempts
-                ):
+                last_error = invoke_error
+                should_retry = False
+
+                if provider == "local" and attempt < max_attempts:
+                    if _is_local_model_unloaded_error(invoke_error):
+                        should_retry = True
+                    elif _should_retry_local_error(invoke_error):
+                        should_retry = True
+
+                if should_retry:
                     wait_seconds = attempt * 2
                     print(
-                        f"Local model not loaded for {item.get('id', 'unknown')}, retrying in {wait_seconds}s "
-                        f"({attempt}/{max_attempts})",
+                        f"Local AI parse/invoke retry for {item.get('id', 'unknown')} in {wait_seconds}s "
+                        f"({attempt}/{max_attempts}): {invoke_error}",
                         file=sys.stderr,
                     )
                     time.sleep(wait_seconds)
                     continue
                 raise
 
-        if response is None and last_invoke_error is not None:
-            raise last_invoke_error
-
-        if isinstance(response, Structure):
-            item["AI"] = response.model_dump()
-            return item
-
-        # 走到这里说明本地 parser response 是 AIMessage/str
-        response_text = response.content if isinstance(response, AIMessage) else str(response)
-        data = _extract_json(response_text)
-
-        obj = Structure.model_validate({**default_ai_fields, **data})
-        item["AI"] = obj.model_dump()
+        if last_error is not None:
+            raise last_error
     except langchain_core.exceptions.OutputParserException as e:
         # 尝试从错误信息中提取 JSON 字符串并修复
         error_msg = getattr(e, "llm_output", None) or str(e)
@@ -498,7 +587,6 @@ def process_all_items(data: List[Dict], model_name: str = "deepseek-chat", langu
             SystemMessage(content=system_prompt),
             HumanMessagePromptTemplate.from_template(template=template)
         ])
-        parser = PydanticOutputParser(pydantic_object=Structure)
 
         if provider == "official":
             # 创建ChatOpenAI实例，传递API密钥和基础URL
@@ -541,25 +629,16 @@ def process_all_items(data: List[Dict], model_name: str = "deepseek-chat", langu
         else:
             # 本地模式固定两路：两个 lease + 两个 chain + 数据二分并行
             local_batch_workers = 6  # 固定每个实例并发为6
-            fmt = parser.get_format_instructions()
-            fmt_escaped = fmt.replace("{", "{{").replace("}", "}}")
-            system_with_format = system_prompt + "\n\n" + fmt_escaped
-
-            prompt_template_local = ChatPromptTemplate.from_messages([
-                SystemMessage(content=system_with_format),
-                HumanMessagePromptTemplate.from_template(template=template),
-            ])
-
-            chain_a = prompt_template_local | ChatOpenAI(
+            chain_a = prompt_template | ChatOpenAI(
                 model=model_name,
                 api_key=api_key,
                 base_url=base_urls[0],
-            ) | parser
-            chain_b = prompt_template_local | ChatOpenAI(
+            )
+            chain_b = prompt_template | ChatOpenAI(
                 model=model_name,
                 api_key=api_key,
                 base_url=base_urls[1],
-            ) | parser
+            )
             print('Connect to:', base_urls[0], ":", model_name, file=sys.stderr)
             print('Connect to:', base_urls[1], ":", model_name, file=sys.stderr)
 
