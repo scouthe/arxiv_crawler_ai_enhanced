@@ -1,0 +1,108 @@
+{
+  "status": "partial_success",
+  "date": "2026-04-10",
+  "articles_count": 3,
+  "draft_media_id": "G4WnkOWFcimZ2-CdMbaq1TE9WD_A3gItuZ1HHPlU5olDdjUYmu-HYnI1traJ-pOx",
+  "article_titles": [
+    "人工智能，计算机视觉，机器学习， 图像和视频处理论文速递--(2026-04-10)",
+    "声音，音频和语音处理论文速递--(2026-04-10)",
+    "人机交互，机器人技术论文速递--(2026-04-10)"
+  ],
+  "diagnostics": {
+    "modules": {
+      "arxiv": {
+        "status": "success",
+        "group_main": {
+          "stats": {
+            "ai": 35,
+            "cv": 74,
+            "lg": 17,
+            "iv": 3
+          },
+          "cards_after_filter": 33,
+          "filtered_text_len": 72297
+        },
+        "group_audio": {
+          "stats": {
+            "sd": 5,
+            "as": 2
+          },
+          "cards_after_filter": 7,
+          "filtered_text_len": 16013
+        },
+        "group_hcro": {
+          "stats": {
+            "hc": 6,
+            "ro": 15,
+            "nc": 0
+          },
+          "cards_after_filter": 16,
+          "filtered_text_len": 31548
+        }
+      },
+      "journal": {
+        "status": "failed",
+        "error": "journal assets directory not found: /home/heheheh/Documents/n8n/arxiv_crawler_ai_enhanced/期刊介绍/2026/04/2026-04-10"
+      }
+    },
+    "steps": {
+      "wechat_connectivity": {
+        "status": "success",
+        "current_ip": "213.35.119.52"
+      },
+      "draft_publish": {
+        "status": "success",
+        "media_id": "G4WnkOWFcimZ2-CdMbaq1TE9WD_A3gItuZ1HHPlU5olDdjUYmu-HYnI1traJ-pOx",
+        "articles_count": 3
+      },
+      "ai_enhance": {
+        "status": "success"
+      },
+      "git_sync": {
+        "status": "success",
+        "message": "Git Push 成功！（origin）"
+      },
+      "xiaohongshu_copy": {
+        "status": "skipped",
+        "reason": "journal_module_failed"
+      }
+    },
+    "wechat_connectivity": {
+      "status": "success",
+      "current_ip": "213.35.119.52"
+    },
+    "arxiv": {
+      "group_main": {
+        "stats": {
+          "ai": 35,
+          "cv": 74,
+          "lg": 17,
+          "iv": 3
+        },
+        "cards_after_filter": 33,
+        "filtered_text_len": 72297
+      },
+      "group_audio": {
+        "stats": {
+          "sd": 5,
+          "as": 2
+        },
+        "cards_after_filter": 7,
+        "filtered_text_len": 16013
+      },
+      "group_hcro": {
+        "stats": {
+          "hc": 6,
+          "ro": 15,
+          "nc": 0
+        },
+        "cards_after_filter": 16,
+        "filtered_text_len": 31548
+      }
+    },
+    "git_sync": {
+      "status": "success",
+      "message": "Git Push 成功！（origin）"
+    }
+  }
+}
