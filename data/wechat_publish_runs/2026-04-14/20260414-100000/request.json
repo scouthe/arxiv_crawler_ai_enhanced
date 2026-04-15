@@ -1,0 +1,6 @@
+{
+  "date_set": "2026-04-14",
+  "dry_run": false,
+  "run_arxiv_module": true,
+  "run_journal_module": true
+}
