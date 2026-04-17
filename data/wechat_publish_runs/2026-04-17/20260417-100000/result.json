@@ -1,0 +1,53 @@
+{
+  "status": "failed",
+  "date": "2026-04-17",
+  "articles_count": 0,
+  "draft_media_id": null,
+  "article_titles": [],
+  "diagnostics": {
+    "modules": {
+      "arxiv": {
+        "status": "pending"
+      },
+      "journal": {
+        "status": "pending"
+      }
+    },
+    "steps": {
+      "wechat_connectivity": {
+        "status": "failed",
+        "errcode": 40164,
+        "errmsg": "invalid ip 1.192.164.235 ipv6 ::ffff:1.192.164.235, not in whitelist rid: 69e19421-0fda4d16-13cd11c5",
+        "current_ip": "38.49.57.21",
+        "hinted_ip": "1.192.164.235",
+        "raw_data": {
+          "errcode": 40164,
+          "errmsg": "invalid ip 1.192.164.235 ipv6 ::ffff:1.192.164.235, not in whitelist rid: 69e19421-0fda4d16-13cd11c5"
+        }
+      },
+      "draft_publish": {
+        "status": "pending"
+      },
+      "ai_enhance": {
+        "status": "pending"
+      },
+      "git_sync": {
+        "status": "pending"
+      },
+      "xiaohongshu_copy": {
+        "status": "pending"
+      }
+    },
+    "wechat_connectivity": {
+      "status": "failed",
+      "errcode": 40164,
+      "errmsg": "invalid ip 1.192.164.235 ipv6 ::ffff:1.192.164.235, not in whitelist rid: 69e19421-0fda4d16-13cd11c5",
+      "current_ip": "38.49.57.21",
+      "hinted_ip": "1.192.164.235",
+      "raw_data": {
+        "errcode": 40164,
+        "errmsg": "invalid ip 1.192.164.235 ipv6 ::ffff:1.192.164.235, not in whitelist rid: 69e19421-0fda4d16-13cd11c5"
+      }
+    }
+  }
+}

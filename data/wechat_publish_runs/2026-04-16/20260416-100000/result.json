@@ -1,0 +1,108 @@
+{
+  "status": "partial_success",
+  "date": "2026-04-16",
+  "articles_count": 3,
+  "draft_media_id": "G4WnkOWFcimZ2-CdMbaq1Sus7sdTLcolGVGelyrULv8Z34lBU9CAb9ltQ-IWodBb",
+  "article_titles": [
+    "人工智能，计算机视觉，机器学习， 图像和视频处理论文速递--(2026-04-16)",
+    "声音，音频和语音处理论文速递--(2026-04-16)",
+    "人机交互，机器人技术论文速递--(2026-04-16)"
+  ],
+  "diagnostics": {
+    "modules": {
+      "arxiv": {
+        "status": "success",
+        "group_main": {
+          "stats": {
+            "ai": 10,
+            "cv": 47,
+            "lg": 12,
+            "iv": 0
+          },
+          "cards_after_filter": 30,
+          "filtered_text_len": 64125
+        },
+        "group_audio": {
+          "stats": {
+            "sd": 2,
+            "as": 0
+          },
+          "cards_after_filter": 2,
+          "filtered_text_len": 3590
+        },
+        "group_hcro": {
+          "stats": {
+            "hc": 8,
+            "ro": 13,
+            "nc": 0
+          },
+          "cards_after_filter": 18,
+          "filtered_text_len": 36501
+        }
+      },
+      "journal": {
+        "status": "failed",
+        "error": "journal assets directory not found: /home/heheheh/Documents/n8n/arxiv_crawler_ai_enhanced/期刊介绍/2026/04/2026-04-16"
+      }
+    },
+    "steps": {
+      "wechat_connectivity": {
+        "status": "success",
+        "current_ip": "213.35.119.52"
+      },
+      "draft_publish": {
+        "status": "success",
+        "media_id": "G4WnkOWFcimZ2-CdMbaq1Sus7sdTLcolGVGelyrULv8Z34lBU9CAb9ltQ-IWodBb",
+        "articles_count": 3
+      },
+      "ai_enhance": {
+        "status": "success"
+      },
+      "git_sync": {
+        "status": "warning",
+        "message": "未配置 GIT_TOKEN 或 origin 凭据不可用，仅完成本地提交"
+      },
+      "xiaohongshu_copy": {
+        "status": "skipped",
+        "reason": "journal_module_failed"
+      }
+    },
+    "wechat_connectivity": {
+      "status": "success",
+      "current_ip": "213.35.119.52"
+    },
+    "arxiv": {
+      "group_main": {
+        "stats": {
+          "ai": 10,
+          "cv": 47,
+          "lg": 12,
+          "iv": 0
+        },
+        "cards_after_filter": 30,
+        "filtered_text_len": 64125
+      },
+      "group_audio": {
+        "stats": {
+          "sd": 2,
+          "as": 0
+        },
+        "cards_after_filter": 2,
+        "filtered_text_len": 3590
+      },
+      "group_hcro": {
+        "stats": {
+          "hc": 8,
+          "ro": 13,
+          "nc": 0
+        },
+        "cards_after_filter": 18,
+        "filtered_text_len": 36501
+      }
+    },
+    "git_sync": {
+      "status": "warning",
+      "message": "未配置 GIT_TOKEN 或 origin 凭据不可用，仅完成本地提交"
+    }
+  }
+}
