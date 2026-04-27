@@ -1,0 +1,21 @@
+{
+  "journal_title": "ACM Transactions on the Web",
+  "charts": {
+    "IF 趋势图": {
+      "variant": "wechat_235",
+      "main_title": "影响因子（IF）五年趋势分析",
+      "years": [2021, 2022, 2023, 2024, 2025],
+      "values": [2.0, 3.35, 3.5, 2.6, 4.1],
+      "left_lines": ["最新影响因子：2025年为4.1"],
+      "right_lines": ["影响因子区间：2.0–4.1"]
+    },
+    "年发文量趋势图": {
+      "variant": "wechat_235",
+      "main_title": "年发文量五年趋势分析",
+      "years": [2021, 2022, 2023, 2024, 2025],
+      "values": [18, 20, 21, 33, 50],
+      "left_lines": ["最新年发文量：2025年约50篇"],
+      "right_lines": ["发文量区间：18–50篇"]
+    }
+  }
+}

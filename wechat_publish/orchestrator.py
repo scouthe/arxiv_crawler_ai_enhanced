@@ -8,7 +8,12 @@ from run_crawler import ai_enhance_only, crawl_only
 
 from git_sync import run_git_sync_internal
 
-from .journal_branch import build_journal_article, load_journal_assets
+from .chart import generate_charts_from_config
+from .journal_branch import (
+    DEFAULT_BRAND_LOGO_PATH,
+    build_journal_article,
+    load_journal_assets,
+)
 from .markdown_branches import build_three_arxiv_articles
 from .models import (
     DraftArticle,
@@ -238,32 +243,84 @@ def run_pipeline(
             md_files, png_files = load_journal_assets(config.assets_dir, config.date_str)
             md_texts = [x.read_text(encoding="utf-8") for x in md_files]
             journal_markdown_for_xhs = "\n\n".join(md_texts)
+            journal_day_dir = md_files[0].parent
+            chart_config_path = journal_day_dir / "chart_config.json"
+            generated_chart_paths: dict[str, Path] = {}
+            if chart_config_path.exists():
+                generated_chart_paths = generate_charts_from_config(
+                    chart_config_path,
+                    journal_day_dir / "_generated",
+                )
+            else:
+                LOGGER.info("未找到 chart_config.json，跳过期刊图表生成: %s", chart_config_path)
 
-            journal_thumb_media_id = config.thumb_id_journal
+            journal_thumb_media_id = config.thumb_id_journal or config.thumb_id_arxiv_main
+            brand_logo_url = ""
+            image_map: dict[str, str] = {}
+            original_png_paths = list(png_files)
             if dry_run:
-                image_urls = [f"https://example.com/mock-{i}.png" for i, _ in enumerate(png_files)]
-                if not journal_thumb_media_id and len(png_files) > 4:
+                for i, path in enumerate(original_png_paths):
+                    mock_url = f"https://example.com/mock-{i}.png"
+                    image_map[path.name] = mock_url
+                    image_map[path.stem] = mock_url
+                for i, chart_name in enumerate(generated_chart_paths, start=len(original_png_paths)):
+                    image_map[chart_name] = f"https://example.com/mock-chart-{i}.png"
+                if DEFAULT_BRAND_LOGO_PATH.exists():
+                    brand_logo_url = "https://example.com/mock-brand-logo.png"
+                if not journal_thumb_media_id and len(original_png_paths) > 4:
                     journal_thumb_media_id = "MOCK_MEDIA_ID_INDEX_4"
             else:
                 if not config.wechat_app_id or not config.wechat_app_secret:
                     raise RuntimeError("WECHAT_APP_ID/WECHAT_APP_SECRET is required when dry_run=false")
                 client = WechatClient(config.wechat_app_id, config.wechat_app_secret)
-                uploaded = [client.upload_image_material(path) for path in png_files]
-                image_urls = [item.get("url", "") for item in uploaded]
-                if not journal_thumb_media_id and len(uploaded) > 4:
-                    journal_thumb_media_id = uploaded[4].get("media_id", "")
+                if DEFAULT_BRAND_LOGO_PATH.exists():
+                    try:
+                        brand_logo_upload = client.upload_image_material(DEFAULT_BRAND_LOGO_PATH)
+                        brand_logo_url = brand_logo_upload.get("url", "")
+                    except Exception:
+                        LOGGER.exception("品牌 logo 上传失败，将继续生成无 logo 的期刊文章")
+
+                uploaded_original = [
+                    (path, client.upload_image_material(path))
+                    for path in original_png_paths
+                ]
+                for path, item in uploaded_original:
+                    url = item.get("url", "").strip()
+                    if not url:
+                        continue
+                    image_map[path.name] = url
+                    image_map[path.stem] = url
+
+                uploaded_generated = [
+                    (chart_name, path, client.upload_image_material(path))
+                    for chart_name, path in generated_chart_paths.items()
+                ]
+                for chart_name, path, item in uploaded_generated:
+                    url = item.get("url", "").strip()
+                    if not url:
+                        continue
+                    image_map[chart_name] = url
+                    image_map[path.name] = url
+                    image_map[path.stem] = url
+
+                if not journal_thumb_media_id and len(uploaded_original) > 4:
+                    journal_thumb_media_id = uploaded_original[4][1].get("media_id", "")
 
             journal_article = build_journal_article(
                 markdown_items=md_texts,
-                image_urls=image_urls,
+                image_map=image_map,
                 author=config.draft_author,
                 thumb_media_id=journal_thumb_media_id,
+                brand_logo_url=brand_logo_url,
             )
             articles = [journal_article] + articles
             journal_diag = {
                 "md_count": len(md_files),
                 "png_count": len(png_files),
-                "image_url_count": len(image_urls),
+                "chart_config_present": chart_config_path.exists(),
+                "generated_chart_count": len(generated_chart_paths),
+                "image_map_count": len(image_map),
+                "brand_logo_url_set": bool(brand_logo_url),
             }
             diagnostics["modules"]["journal"] = {"status": "success", **journal_diag}
             diagnostics["journal"] = journal_diag

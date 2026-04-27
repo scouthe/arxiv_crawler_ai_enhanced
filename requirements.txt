@@ -34,6 +34,8 @@ typing-extensions==4.15.0
 python-dotenv==1.2.1
 requests==2.32.5
 openai==2.8.1
+matplotlib==3.10.7
+numpy==2.3.5
 click==8.3.1
 colorama==0.4.6
 certifi==2025.11.12

@@ -48,6 +48,56 @@ def _render_system_prompt(language: str) -> str:
     return system.replace("{language}", language)
 
 
+def _is_true(raw: str | None, default: bool = False) -> bool:
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _looks_local_url(url: str) -> bool:
+    lowered = (url or "").strip().lower()
+    return (
+        "127.0.0.1" in lowered
+        or "localhost" in lowered
+        or ":8900" in lowered
+        or ":9201" in lowered
+        or ":9202" in lowered
+    )
+
+
+def _is_placeholder_api_key(api_key: str) -> bool:
+    lowered = (api_key or "").strip().lower()
+    return lowered in {"", "vllm-local", "local", "test", "dummy", "none"}
+
+
+def _build_official_fallback_config(current_model_name: str) -> Dict[str, str]:
+    env_base_url = os.environ.get("OPENAI_BASE_URL", "").strip()
+    env_api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+
+    official_base_url = (
+        os.environ.get("OFFICIAL_OPENAI_BASE_URL")
+        or os.environ.get("CLOUD_OPENAI_BASE_URL")
+        or (env_base_url if env_base_url and not _looks_local_url(env_base_url) else "")
+    )
+    official_api_key = (
+        os.environ.get("OFFICIAL_OPENAI_API_KEY")
+        or os.environ.get("CLOUD_OPENAI_API_KEY")
+        or (env_api_key if not _is_placeholder_api_key(env_api_key) else "")
+    )
+    official_model_name = (
+        os.environ.get("OFFICIAL_MODEL_NAME")
+        or os.environ.get("CLOUD_MODEL_NAME")
+        or current_model_name
+        or "deepseek-chat"
+    )
+
+    return {
+        "base_url": official_base_url.strip(),
+        "api_key": official_api_key.strip(),
+        "model_name": official_model_name.strip(),
+    }
+
+
 def _inspect_ai_payload(ai_payload: Dict | None) -> Dict[str, List[str]]:
     missing_fields = []
     placeholder_fields = []
@@ -71,21 +121,27 @@ def _inspect_ai_payload(ai_payload: Dict | None) -> Dict[str, List[str]]:
     }
 
 
-def summarize_ai_quality(enhanced_data: List[Dict]) -> Dict:
+def collect_invalid_ai_items(enhanced_data: List[Dict]) -> List[Dict]:
     invalid_items = []
 
-    for item in enhanced_data:
+    for idx, item in enumerate(enhanced_data):
         item_id = item.get("id", "unknown")
         details = _inspect_ai_payload(item.get("AI"))
         if details["missing_fields"] or details["placeholder_fields"]:
             invalid_items.append(
                 {
+                    "index": idx,
                     "id": item_id,
                     "missing_fields": details["missing_fields"],
                     "placeholder_fields": details["placeholder_fields"],
                 }
             )
 
+    return invalid_items
+
+
+def summarize_ai_quality(enhanced_data: List[Dict]) -> Dict:
+    invalid_items = collect_invalid_ai_items(enhanced_data)
     total = len(enhanced_data)
     invalid_count = len(invalid_items)
     return {
@@ -93,6 +149,7 @@ def summarize_ai_quality(enhanced_data: List[Dict]) -> Dict:
         "valid_count": total - invalid_count,
         "invalid_count": invalid_count,
         "invalid_ratio": (invalid_count / total) if total else 0.0,
+        "invalid_items": invalid_items,
         "sample_invalid_items": invalid_items[:5],
     }
 
@@ -116,6 +173,107 @@ def ensure_ai_enhancement_quality(enhanced_data: List[Dict], context: str = "") 
             f"sample={sample_text}"
         )
     return stats
+
+
+def retry_invalid_items_with_official(
+    enhanced_data: List[Dict],
+    model_name: str,
+    language: str,
+    max_workers: int,
+) -> List[Dict]:
+    invalid_items = collect_invalid_ai_items(enhanced_data)
+    if not invalid_items:
+        return enhanced_data
+
+    fallback_cfg = _build_official_fallback_config(model_name)
+    fallback_base_url = fallback_cfg["base_url"]
+    fallback_api_key = fallback_cfg["api_key"]
+    fallback_model_name = fallback_cfg["model_name"]
+
+    if not fallback_base_url or _looks_local_url(fallback_base_url):
+        print(
+            "Local AI enhancement produced invalid items, but no valid cloud base URL is configured. "
+            "Skip partial cloud repair.",
+            file=sys.stderr,
+        )
+        return enhanced_data
+
+    if _is_placeholder_api_key(fallback_api_key):
+        print(
+            "Local AI enhancement produced invalid items, but no valid cloud API key is configured. "
+            "Skip partial cloud repair.",
+            file=sys.stderr,
+        )
+        return enhanced_data
+
+    invalid_ids = [item["id"] for item in invalid_items]
+    print(
+        "Local AI enhancement produced "
+        f"{len(invalid_items)} invalid items; retrying only these items via cloud provider. "
+        f"ids={invalid_ids[:10]}{'...' if len(invalid_ids) > 10 else ''}",
+        file=sys.stderr,
+    )
+
+    invalid_input_items = []
+    for invalid in invalid_items:
+        repaired_input = dict(enhanced_data[invalid["index"]])
+        repaired_input.pop("AI", None)
+        invalid_input_items.append(repaired_input)
+
+    repair_workers = max(1, min(max_workers, len(invalid_input_items)))
+    original_openai_base_url = os.environ.get("OPENAI_BASE_URL")
+    original_openai_api_key = os.environ.get("OPENAI_API_KEY")
+    original_provider = os.environ.get("PROVIDER")
+
+    try:
+        os.environ["OPENAI_BASE_URL"] = fallback_base_url
+        os.environ["OPENAI_API_KEY"] = fallback_api_key
+        os.environ["PROVIDER"] = "official"
+        repaired_items = process_all_items(
+            invalid_input_items,
+            fallback_model_name,
+            language,
+            repair_workers,
+            provider="official",
+        )
+    finally:
+        if original_openai_base_url is None:
+            os.environ.pop("OPENAI_BASE_URL", None)
+        else:
+            os.environ["OPENAI_BASE_URL"] = original_openai_base_url
+
+        if original_openai_api_key is None:
+            os.environ.pop("OPENAI_API_KEY", None)
+        else:
+            os.environ["OPENAI_API_KEY"] = original_openai_api_key
+
+        if original_provider is None:
+            os.environ.pop("PROVIDER", None)
+        else:
+            os.environ["PROVIDER"] = original_provider
+
+    repaired_by_id = {
+        item.get("id"): item
+        for item in repaired_items
+        if item is not None and item.get("id")
+    }
+
+    merged_count = 0
+    for invalid in invalid_items:
+        repaired_item = repaired_by_id.get(invalid["id"])
+        if repaired_item is None:
+            continue
+        enhanced_data[invalid["index"]] = repaired_item
+        merged_count += 1
+
+    remaining_stats = summarize_ai_quality(enhanced_data)
+    print(
+        "Partial cloud repair finished: "
+        f"merged={merged_count}/{len(invalid_items)}, "
+        f"remaining_invalid={remaining_stats['invalid_count']}",
+        file=sys.stderr,
+    )
+    return enhanced_data
 
 def _extract_json_object_text(text: str) -> str:
     text = text.strip()
@@ -404,13 +562,7 @@ def _process_batch(
                 results.append((idx, result))
             except Exception as e:
                 print(f"Item at index {idx} generated an exception: {e}", file=sys.stderr)
-                item['AI'] = {
-                    "tldr": "Processing failed",
-                    "motivation": "Processing failed",
-                    "method": "Processing failed",
-                    "result": "Processing failed",
-                    "conclusion": "Processing failed"
-                }
+                item['AI'] = DEFAULT_AI_FIELDS.copy()
                 results.append((idx, item))
     return results
 
@@ -619,13 +771,7 @@ def process_all_items(data: List[Dict], model_name: str = "deepseek-chat", langu
                     except Exception as e:
                         print(f"Item at index {idx} generated an exception: {e}", file=sys.stderr)
                         processed_data[idx] = data[idx]
-                        processed_data[idx]['AI'] = {
-                            "tldr": "Processing failed",
-                            "motivation": "Processing failed",
-                            "method": "Processing failed",
-                            "result": "Processing failed",
-                            "conclusion": "Processing failed"
-                        }
+                        processed_data[idx]['AI'] = DEFAULT_AI_FIELDS.copy()
         else:
             # 本地模式固定两路：两个 lease + 两个 chain + 数据二分并行
             local_batch_workers = 6  # 固定每个实例并发为6
@@ -703,6 +849,14 @@ def enhance_jsonl_data(jsonl_data: List[Dict], model_name: str = "deepseek-chat"
         max_workers,
         provider
     )
+
+    if provider == "local" and _is_true(os.environ.get("AUTO_FALLBACK_TO_OFFICIAL"), True):
+        processed_data = retry_invalid_items_with_official(
+            processed_data,
+            model_name,
+            language,
+            max_workers,
+        )
     
     # 过滤掉None值
     return [item for item in processed_data if item is not None]

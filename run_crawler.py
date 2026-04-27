@@ -11,6 +11,7 @@
 
 import os
 import sys
+import json
 from contextlib import contextmanager
 from datetime import date, timedelta
 from pathlib import Path
@@ -24,6 +25,7 @@ if os.path.exists('.env'):
 sys.path.append(os.path.join(os.path.dirname(__file__), 'arxiv_crawler'))
 
 from arxiv_crawler import ArxivScraper
+from ai.enhance import ensure_ai_enhancement_quality
 
 
 def _is_true(raw: str | None, default: bool = False) -> bool:
@@ -121,6 +123,62 @@ def _run_ai_enhance_for_provider(
     )
     print(f"更新assets/file-list.txt...")
     update_file_list(crawl_date)
+
+
+def _load_jsonl_records(path: Path) -> list[dict]:
+    records = []
+    with open(path, "r", encoding="utf-8") as f:
+        for line_no, line in enumerate(f, start=1):
+            raw = line.strip()
+            if not raw:
+                continue
+            try:
+                records.append(json.loads(raw))
+            except json.JSONDecodeError as exc:
+                raise RuntimeError(f"{path.name} 第 {line_no} 行不是合法 JSON: {exc}") from exc
+    return records
+
+
+def _check_existing_ai_enhanced_output(crawl_date: str, language: str) -> tuple[bool, str]:
+    data_dir = Path("./data")
+    target_file = data_dir / f"{crawl_date}_AI_enhanced_{language}.jsonl"
+    source_file = data_dir / f"{crawl_date}.jsonl"
+
+    if not target_file.exists():
+        return False, f"{target_file.name} 不存在"
+
+    try:
+        enhanced_data = _load_jsonl_records(target_file)
+    except Exception as exc:
+        return False, f"{target_file.name} 读取失败: {exc}"
+
+    if not enhanced_data:
+        return False, f"{target_file.name} 为空"
+
+    if source_file.exists():
+        try:
+            source_data = _load_jsonl_records(source_file)
+        except Exception as exc:
+            return False, f"{source_file.name} 读取失败，无法比对条数: {exc}"
+
+        if len(enhanced_data) != len(source_data):
+            return (
+                False,
+                f"{target_file.name} 条数不一致: ai={len(enhanced_data)}, source={len(source_data)}",
+            )
+
+    try:
+        quality_stats = ensure_ai_enhancement_quality(
+            enhanced_data,
+            context=target_file.name,
+        )
+    except Exception as exc:
+        return False, str(exc)
+
+    return (
+        True,
+        f"{target_file.name} 已存在且质量校验通过，共 {quality_stats['valid_count']} 条",
+    )
 
 def crawl_only(all=False, date_set=None):
     """
@@ -227,6 +285,16 @@ def ai_enhance_only(date_set=None):
     # 优先使用函数参数，其次使用环境变量，最后使用默认值
     crawl_date = date_set if date_set is not None else (env_date if env_date else date.today().strftime("%Y-%m-%d"))
     max_workers = int(env_max_workers) if env_max_workers.isdigit() else 4
+    language = env_language if env_language else "Chinese"
+
+    reuse_existing, reuse_message = _check_existing_ai_enhanced_output(crawl_date, language)
+    if reuse_existing:
+        print(f"检测到已有可复用的 AI 增强结果，直接跳过: {reuse_message}")
+        print("更新assets/file-list.txt...")
+        update_file_list(crawl_date)
+        return True
+
+    print(f"已有 AI 增强结果不可复用，将重新生成: {reuse_message}")
     
     print(f"开始对 {crawl_date} 的论文数据执行AI增强，并行数：{max_workers}")
     
@@ -238,7 +306,6 @@ def ai_enhance_only(date_set=None):
         )
         
         model_name = env_model_name if env_model_name else "deepseek-chat"
-        language = env_language if env_language else "Chinese"
         provider = (env_provider or "official").strip().lower()
 
         try:
@@ -254,6 +321,9 @@ def ai_enhance_only(date_set=None):
             return True
         except Exception as local_error:
             if provider != "local" or not env_auto_fallback:
+                raise
+
+            if "AI enhancement quality check failed" in str(local_error):
                 raise
 
             fallback_cfg = _build_official_fallback_config(model_name)

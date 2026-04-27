@@ -1,7 +1,9 @@
+import os
 import re
 from pathlib import Path
 
 from .constants import IMAGE_HTML
+from .journal_format import md_to_xuanji_html
 from .models import DraftArticle
 
 FONT_STYLE = "-apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB , Microsoft YaHei UI , Microsoft YaHei ,Arial,sans-serif"
@@ -43,6 +45,23 @@ HEJI_HTML = """<section style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);mar
   <mp-style-type data-value="3">
   </mp-style-type>
 </p>"""
+SLOGAN_HTML = (
+    f'<p style="font-size: 0px; line-height: 0; margin: 0px;">&nbsp;</p>'
+    f'<section style="text-align: left; line-height: 1.75; font-family: {FONT_STYLE}; font-size: 16px">'
+    f'<h1 style="text-align: center; line-height: 1.75; font-family: {FONT_STYLE}; '
+    f'font-size: 19.2px; display: table; padding: 0 1em; border-bottom: 2px solid {H1_COLOR}; '
+    f'margin: 2em auto 1em; color: #3f3f3f; font-weight: bold; margin-top: 0" data-heading="true">'
+    f'<strong style="text-align: left; line-height: 1.75; font-family: {FONT_STYLE}; '
+    f'font-size: inherit; color: {H1_COLOR}; font-weight: bold">璇玑枢，助力学术成长，点亮科研之路</strong>'
+    f"</h1></section>"
+)
+INTRO_HTML = SLOGAN_HTML + PROFILE_HTML + HEJI_HTML
+DEFAULT_BRAND_LOGO_PATH = Path(
+    os.environ.get(
+        "WECHAT_BRAND_LOGO_PATH",
+        "/home/heheheh/Documents/coding/gongzhonghao/logo/璇玑枢_横版透明底.png",
+    )
+)
 
 
 def load_journal_assets(base_dir: Path, date_str: str) -> tuple[list[Path], list[Path]]:
@@ -55,130 +74,84 @@ def load_journal_assets(base_dir: Path, date_str: str) -> tuple[list[Path], list
     png_files = sorted(day_dir.glob("*.png"))
     if not md_files:
         raise FileNotFoundError(f"journal markdown not found in: {day_dir}")
-    if not png_files:
-        raise FileNotFoundError(f"journal images not found in: {day_dir}")
     return md_files, png_files
 
 
-def replace_markdown_images(markdown_text: str, image_urls: list[str]) -> str:
-    text = re.sub(r"^(#+)\s*\*\*(.*?)\*\*\s*$", r"\1 \2", markdown_text, flags=re.M)
-    idx = 0
-
-    def _replace(_m):
-        nonlocal idx
-        if idx < len(image_urls):
-            url = image_urls[idx]
-            idx += 1
-            return f"![]({url})"
+def _clean_image_alt(alt_text: str) -> str:
+    alt = alt_text.strip()
+    if alt.lower() in {"alt text", "alt", "image", "figure"}:
         return ""
+    return alt
 
-    return re.sub(r"!\[[^\]]*\]\([^\)]*\)", _replace, text)
+
+def _resolve_image_url(alt_text: str, source: str, image_map: dict[str, str]) -> str:
+    candidates: list[str] = []
+    alt = _clean_image_alt(alt_text)
+    source = source.strip()
+
+    if alt:
+        candidates.append(alt)
+    if source:
+        candidates.append(source)
+        source_name = Path(source).name
+        if source_name and source_name not in candidates:
+            candidates.append(source_name)
+        source_stem = Path(source_name).stem
+        if source_stem and source_stem not in candidates:
+            candidates.append(source_stem)
+
+    for key in candidates:
+        value = image_map.get(key, "").strip()
+        if value:
+            return value
+    return ""
 
 
-def markdown_to_wechat_html(raw_content: str) -> tuple[str, str]:
+def replace_markdown_images(markdown_text: str, image_map: dict[str, str] | list[str] | None) -> str:
+    text = re.sub(r"^(#+)\s*\*\*(.*?)\*\*\s*$", r"\1 \2", markdown_text, flags=re.M)
+    if image_map is None:
+        image_map = {}
+
+    if isinstance(image_map, list):
+        idx = 0
+
+        def _replace_sequential(_m):
+            nonlocal idx
+            if idx < len(image_map):
+                url = image_map[idx]
+                idx += 1
+                return f"![]({url})"
+            return ""
+
+        return re.sub(r"!\[[^\]]*\]\([^\)]*\)", _replace_sequential, text)
+
+    def _replace_named(match: re.Match[str]) -> str:
+        alt_text = match.group("alt")
+        source = match.group("src")
+        url = _resolve_image_url(alt_text, source, image_map)
+        if not url:
+            return ""
+        clean_alt = _clean_image_alt(alt_text)
+        return f"![{clean_alt}]({url})" if clean_alt else f"![]({url})"
+
+    return re.sub(r"!\[(?P<alt>[^\]]*)\]\((?P<src>[^\)]*)\)", _replace_named, text)
+
+
+def extract_markdown_title(markdown_text: str) -> str:
+    for line in markdown_text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("# "):
+            return stripped[2:].strip()
+    return ""
+
+
+def markdown_to_wechat_html(raw_content: str, brand_logo_url: str = "") -> tuple[str, str]:
     markdown_text = raw_content.replace("\r\n", "\n")
     markdown_text = re.sub(r"^\s*璇玑枢，助力学术成长，点亮科研之路\s*$", "", markdown_text, flags=re.M)
-    real_title = ""
-    heading_id = 0
-
-    def h1_replace(match):
-        nonlocal real_title, heading_id
-        content = match.group(1).strip()
-        if not real_title:
-            real_title = content
-            slogan_text = "璇玑枢，助力学术成长，点亮科研之路"
-            h1 = (
-                f'<h1 id="{heading_id}" style="text-align: center; line-height: 1.75; font-family: {FONT_STYLE};'
-                f' font-size: 19.2px; display: table; padding: 0 1em; border-bottom: 2px solid {H1_COLOR}; '
-                'margin: 2em auto 1em; color: #3f3f3f; font-weight: bold;margin-top: 0" data-heading="true">'
-                f'<strong style="text-align: left; line-height: 1.75; font-family: {FONT_STYLE}; '
-                f'font-size: inherit; color: {H1_COLOR}; font-weight: bold">{slogan_text}</strong></h1>'
-            )
-            heading_id += 1
-            return h1 + PROFILE_HTML + HEJI_HTML
-        h1 = (
-            f'<h1 id="{heading_id}" style="text-align: center; line-height: 1.75; font-family: {FONT_STYLE};'
-            f' font-size: 19.2px; display: table; padding: 0 1em; border-bottom: 2px solid {H1_COLOR}; '
-            'margin: 2em auto 1em; color: #3f3f3f; font-weight: bold;margin-top: 0" data-heading="true">'
-            f'<strong style="text-align: left; line-height: 1.75; font-family: {FONT_STYLE}; '
-            f'font-size: inherit; color: {H1_COLOR}; font-weight: bold">{content}</strong></h1>'
-        )
-        heading_id += 1
-        return h1
-
-    markdown_text = re.sub(r"^#\s(.*?)$", h1_replace, markdown_text, flags=re.M)
-
-    def h2_replace(match):
-        nonlocal heading_id
-        content = match.group(1)
-        h = (
-            f'<h2 id="{heading_id}" style="text-align: center; line-height: 1.75; font-family: {FONT_STYLE}; '
-            f'font-size: 19.2px; display: table; padding: 0 0.2em; margin: 4em auto 2em; color: #fff; '
-            f'background: {H1_COLOR}; font-weight: bold" data-heading="true">{content}</h2>'
-        )
-        heading_id += 1
-        return h
-
-    markdown_text = re.sub(r"^##\s(.*?)$", h2_replace, markdown_text, flags=re.M)
-
-    def h3_replace(match):
-        nonlocal heading_id
-        content = match.group(1)
-        h = (
-            f'<h3 id="{heading_id}" style="text-align: left; line-height: 1.2; font-family: {FONT_STYLE}; '
-            f'font-size: 17.6px; padding-left: 8px; border-left: 3px solid {H1_COLOR}; margin: 2em 8px 0.75em 0; '
-            f'color: #3f3f3f; font-weight: bold" data-heading="true">{content}</h3>'
-        )
-        heading_id += 1
-        return h
-
-    markdown_text = re.sub(r"^###\s(.*?)$", h3_replace, markdown_text, flags=re.M)
-
-    markdown_text = re.sub(
-        r"!\[(.*?)\]\((.*?)\)",
-        lambda m: (
-            f'<figure style="text-align: left; line-height: 1.75; font-family: {FONT_STYLE}; '
-            'font-size: 16px; margin: 1.5em 8px; color: #3f3f3f">'
-            f'<img alt="{m.group(1)}" title="null" src="{m.group(2)}" style="text-align: left; line-height: 1.75;'
-            f' font-family: {FONT_STYLE}; font-size: 16px; display: block; max-width: 100%; margin: 0.1em auto 0.5em;'
-            ' border-radius: 4px">'
-            f'<figcaption style="text-align: center; line-height: 1.75; font-family: {FONT_STYLE}; '
-            f'font-size: 0.8em; color: #888">{m.group(1)}</figcaption></figure>'
-        ),
-        markdown_text,
-    )
-
-    markdown_text = re.sub(
-        r"(\n(\s*[\*-]\s.*))+",
-        lambda m: _unordered_list_to_html(m.group(0)),
-        markdown_text,
-    )
-    markdown_text = re.sub(r"(\n(\s*\d+\.\s.*))+", lambda m: _ordered_list_to_html(m.group(0)), markdown_text)
-    markdown_text = re.sub(
-        r"\*\*(.*?)\*\*",
-        lambda m: (
-            f'<strong style="text-align: left; line-height: 1.75; font-family: {FONT_STYLE}; font-size: inherit; '
-            f'color: {H1_COLOR}; font-weight: bold">{m.group(1)}</strong>'
-        ),
-        markdown_text,
-    )
-    markdown_text = re.sub(r"\[(.*?)\]\((.*?)\)", lambda m: m.group(2), markdown_text)
-    markdown_text = re.sub(r"<(http|https):\/\/.*?>", lambda m: m.group(0).strip("<>"), markdown_text)
-
-    markdown_text = re.sub(r"\n{2,}", "BLOCK_SEP", markdown_text)
-    markdown_text = markdown_text.replace("\n", "")
-    markdown_text = markdown_text.replace("BLOCK_SEP", "\n\n")
-
-    parts = [p.strip() for p in re.split(r"\n{2,}", markdown_text) if p.strip()]
-    final_html = "".join(
-        p if p.startswith("<h") or p.startswith("<ul") or p.startswith("<ol") or p.startswith("<figure") else f'<p style="{DEFAULT_P_STYLE}">{p}</p>'
-        for p in parts
-    )
-    section = (
-        f'<p style="font-size: 0px; line-height: 0; margin: 0px;">&nbsp;</p><section style=" text-align: left; '
-        f'line-height: 1.75; font-family: {FONT_STYLE}; font-size: 16px">{final_html}</section>'
-        '<p style="font-size: 0px; line-height: 0; margin: 0px;">&nbsp;</p>'
-    )
+    markdown_text = markdown_text.strip()
+    real_title = extract_markdown_title(markdown_text)
+    body_html = md_to_xuanji_html(markdown_text, brand_logo_url=brand_logo_url)
+    section = body_html + '<p style="font-size: 0px; line-height: 0; margin: 0px;">&nbsp;</p>'
     return section, (real_title or "璇玑枢学术专递")
 
 
@@ -245,18 +218,17 @@ def post_process_journal_html(html_outputs: list[str]) -> list[str]:
 
 def build_journal_article(
     markdown_items: list[str],
-    image_urls: list[str],
+    image_map: dict[str, str] | list[str] | None,
     author: str,
     thumb_media_id: str,
+    brand_logo_url: str = "",
 ) -> DraftArticle:
-    replaced = [replace_markdown_images(md, image_urls) for md in markdown_items]
-    converted = [markdown_to_wechat_html(md) for md in replaced]
+    replaced = [replace_markdown_images(md, image_map) for md in markdown_items]
+    converted = [markdown_to_wechat_html(md, brand_logo_url=brand_logo_url) for md in replaced]
     html_outputs = post_process_journal_html([x[0] for x in converted])
     titles = [x[1] for x in converted]
     content = html_outputs[0] if html_outputs else ""
     title = titles[0] if titles else "璇玑枢学术专递"
-    if len(title) > 60:
-        title = title[:60] + "..."
 
     return DraftArticle(
         title=title,
