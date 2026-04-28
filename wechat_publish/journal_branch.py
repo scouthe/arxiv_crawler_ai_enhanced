@@ -71,7 +71,7 @@ def load_journal_assets(base_dir: Path, date_str: str) -> tuple[list[Path], list
     if not day_dir.exists():
         raise FileNotFoundError(f"journal assets directory not found: {day_dir}")
     md_files = sorted(day_dir.glob("*.md"))
-    png_files = sorted(day_dir.glob("*.png"))
+    png_files = sorted(path for path in day_dir.glob("*.png") if path.name.lower() != "cover.png")
     if not md_files:
         raise FileNotFoundError(f"journal markdown not found in: {day_dir}")
     return md_files, png_files

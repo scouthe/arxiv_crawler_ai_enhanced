@@ -1,7 +1,7 @@
 import json
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -355,6 +355,10 @@ def render_chart(spec: ChartSpec, output_path: str | Path) -> Path:
     raise ValueError(f"不支持的图表 variant: {spec.variant}")
 
 
+def _clone_spec_for_variant(spec: ChartSpec, variant: str) -> ChartSpec:
+    return replace(spec, variant=_normalize_variant(variant))
+
+
 def load_chart_specs(config_path: str | Path) -> dict[str, ChartSpec]:
     config_path = Path(config_path)
     raw = json.loads(config_path.read_text(encoding="utf-8"))
@@ -377,17 +381,31 @@ def _sanitize_filename(name: str) -> str:
     return safe or "chart"
 
 
-def generate_charts_from_config(config_path: str | Path, output_dir: str | Path) -> dict[str, Path]:
+def generate_charts_from_config(
+    config_path: str | Path,
+    output_dir: str | Path,
+    xhs_output_dir: str | Path | None = None,
+) -> dict[str, Path]:
     output_dir = Path(output_dir)
+    config_path = Path(config_path)
+    if xhs_output_dir is None:
+        xhs_output_dir = config_path.parent / "xhs"
+    xhs_output_dir = Path(xhs_output_dir)
     specs = load_chart_specs(config_path)
     output_dir.mkdir(parents=True, exist_ok=True)
+    xhs_output_dir.mkdir(parents=True, exist_ok=True)
 
     outputs: dict[str, Path] = {}
     for chart_name, spec in specs.items():
-        variant = _normalize_variant(spec.variant)
-        suffix = "wechat_235" if variant == "wechat_235" else "xiaohongshu_3x4"
-        output_path = output_dir / f"{_sanitize_filename(chart_name)}_{suffix}.png"
-        outputs[chart_name] = render_chart(spec, output_path)
+        safe_name = _sanitize_filename(chart_name)
+
+        wechat_spec = _clone_spec_for_variant(spec, "wechat_235")
+        wechat_output_path = output_dir / f"{safe_name}_wechat_235.png"
+        outputs[chart_name] = render_chart(wechat_spec, wechat_output_path)
+
+        xhs_spec = _clone_spec_for_variant(spec, "xiaohongshu_3x4")
+        xhs_output_path = xhs_output_dir / f"{safe_name}_xiaohongshu_3x4.png"
+        render_chart(xhs_spec, xhs_output_path)
     return outputs
 
 

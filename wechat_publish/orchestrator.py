@@ -245,11 +245,13 @@ def run_pipeline(
             journal_markdown_for_xhs = "\n\n".join(md_texts)
             journal_day_dir = md_files[0].parent
             chart_config_path = journal_day_dir / "chart_config.json"
+            journal_cover_path = journal_day_dir / "cover.png"
             generated_chart_paths: dict[str, Path] = {}
             if chart_config_path.exists():
                 generated_chart_paths = generate_charts_from_config(
                     chart_config_path,
                     journal_day_dir / "_generated",
+                    journal_day_dir / "xhs",
                 )
             else:
                 LOGGER.info("未找到 chart_config.json，跳过期刊图表生成: %s", chart_config_path)
@@ -267,7 +269,9 @@ def run_pipeline(
                     image_map[chart_name] = f"https://example.com/mock-chart-{i}.png"
                 if DEFAULT_BRAND_LOGO_PATH.exists():
                     brand_logo_url = "https://example.com/mock-brand-logo.png"
-                if not journal_thumb_media_id and len(original_png_paths) > 4:
+                if journal_cover_path.exists():
+                    journal_thumb_media_id = "MOCK_MEDIA_ID_COVER"
+                elif not journal_thumb_media_id and len(original_png_paths) > 4:
                     journal_thumb_media_id = "MOCK_MEDIA_ID_INDEX_4"
             else:
                 if not config.wechat_app_id or not config.wechat_app_secret:
@@ -303,7 +307,12 @@ def run_pipeline(
                     image_map[path.name] = url
                     image_map[path.stem] = url
 
-                if not journal_thumb_media_id and len(uploaded_original) > 4:
+                if journal_cover_path.exists():
+                    cover_upload = client.upload_image_material(journal_cover_path)
+                    journal_thumb_media_id = cover_upload.get("media_id", "").strip()
+                    if not journal_thumb_media_id:
+                        raise RuntimeError(f"cover.png uploaded but no media_id returned: {journal_cover_path}")
+                elif not journal_thumb_media_id and len(uploaded_original) > 4:
                     journal_thumb_media_id = uploaded_original[4][1].get("media_id", "")
 
             journal_article = build_journal_article(
@@ -317,10 +326,17 @@ def run_pipeline(
             journal_diag = {
                 "md_count": len(md_files),
                 "png_count": len(png_files),
+                "cover_present": journal_cover_path.exists(),
                 "chart_config_present": chart_config_path.exists(),
                 "generated_chart_count": len(generated_chart_paths),
+                "xhs_chart_dir": str(journal_day_dir / "xhs"),
                 "image_map_count": len(image_map),
                 "brand_logo_url_set": bool(brand_logo_url),
+                "thumb_media_id_source": (
+                    "cover.png"
+                    if journal_cover_path.exists()
+                    else ("config/default" if journal_thumb_media_id else "none")
+                ),
             }
             diagnostics["modules"]["journal"] = {"status": "success", **journal_diag}
             diagnostics["journal"] = journal_diag
