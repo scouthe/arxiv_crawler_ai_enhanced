@@ -42,6 +42,54 @@ def _truncate_wechat_title(title: str, max_bytes: int = 60) -> str:
     return cur + suffix
 
 
+def _set_article_titles(articles: list[DraftArticle], titles: list[str]) -> None:
+    for article, title in zip(articles, titles):
+        article.title = title
+
+
+def _title_retry_limits(configured_limit: int) -> list[int]:
+    limits: list[int] = []
+    if configured_limit > 0:
+        limits.append(configured_limit)
+    for limit in (140, 128, 120, 112, 104, 96, 88, 80, 72, 64, 60, 56, 52, 48):
+        if limit not in limits:
+            limits.append(limit)
+    return limits
+
+
+def _retry_add_draft_with_safe_titles(
+    client: WechatClient,
+    articles: list[DraftArticle],
+    base_titles: list[str],
+    configured_limit: int,
+) -> dict:
+    last_exc: WechatAPIError | None = None
+    last_titles = [article.title for article in articles]
+
+    for limit in _title_retry_limits(configured_limit):
+        retry_titles = [_truncate_wechat_title(title, max_bytes=limit) for title in base_titles]
+        if retry_titles == last_titles:
+            continue
+
+        _set_article_titles(articles, retry_titles)
+        LOGGER.warning("微信草稿标题超限，使用 %s bytes 截断后重试上传", limit)
+        for idx, (before, after) in enumerate(zip(base_titles, retry_titles), start=1):
+            if before != after:
+                LOGGER.info("标题截断 article=%s before=%s after=%s", idx, before, after)
+
+        try:
+            return client.add_draft([article.to_dict() for article in articles])
+        except WechatAPIError as exc:
+            last_exc = exc
+            last_titles = retry_titles
+            if exc.errcode != 45003:
+                raise
+
+    if last_exc is not None:
+        raise last_exc
+    raise RuntimeError("title retry requested but no retry candidates were available")
+
+
 def _cleanup_markdown_file(md_file: Path) -> None:
     """Remove transient markdown after use; it will be regenerated on next run."""
     try:
@@ -355,9 +403,12 @@ def run_pipeline(
         articles = articles[:8]
 
     title_max_bytes = int(os.environ.get("WECHAT_TITLE_MAX_BYTES", "0"))
+    original_titles = [article.title for article in articles]
     if title_max_bytes > 0:
-        for article in articles:
-            article.title = _truncate_wechat_title(article.title, max_bytes=title_max_bytes)
+        _set_article_titles(
+            articles,
+            [_truncate_wechat_title(title, max_bytes=title_max_bytes) for title in original_titles],
+        )
 
     draft_media_id = None
     if dry_run:
@@ -374,6 +425,25 @@ def run_pipeline(
                 "media_id": draft_media_id,
                 "articles_count": len(articles),
             }
+        except WechatAPIError as exc:
+            if exc.errcode == 45003:
+                draft_resp = _retry_add_draft_with_safe_titles(
+                    client=client,
+                    articles=articles,
+                    base_titles=original_titles,
+                    configured_limit=title_max_bytes,
+                )
+                draft_media_id = draft_resp.get("media_id")
+                diagnostics["steps"]["draft_publish"] = {
+                    "status": "success",
+                    "media_id": draft_media_id,
+                    "articles_count": len(articles),
+                    "title_retry": True,
+                    "final_title_bytes": [len(article.title.encode("utf-8")) for article in articles],
+                }
+            else:
+                diagnostics["steps"]["draft_publish"] = {"status": "failed", "error": str(exc)}
+                _raise_with_diagnostics(f"draft publish failed: {exc}", diagnostics)
         except Exception as exc:
             diagnostics["steps"]["draft_publish"] = {"status": "failed", "error": str(exc)}
             _raise_with_diagnostics(f"draft publish failed: {exc}", diagnostics)
