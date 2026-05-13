@@ -280,6 +280,11 @@ def _build_summary_email(
     git_step = steps.get("git_sync", {}) if isinstance(steps.get("git_sync", {}), dict) else {}
     xhs_step = steps.get("xiaohongshu_copy", {}) if isinstance(steps.get("xiaohongshu_copy", {}), dict) else {}
     xhs_payload = diagnostics.get("xiaohongshu_copy", {}) if isinstance(diagnostics.get("xiaohongshu_copy", {}), dict) else {}
+    daily_jsonl = diagnostics.get("daily_jsonl_export", {}) if isinstance(diagnostics.get("daily_jsonl_export", {}), dict) else {}
+    if not daily_jsonl and isinstance(ai_step.get("daily_jsonl"), dict):
+        daily_jsonl = ai_step["daily_jsonl"]
+    daily_upload = daily_jsonl.get("upload", {}) if isinstance(daily_jsonl.get("upload", {}), dict) else {}
+    meta_update = daily_jsonl.get("meta_update", {}) if isinstance(daily_jsonl.get("meta_update", {}), dict) else {}
 
     precheck_info: dict[str, Any] = {}
     if precheck_error is not None:
@@ -294,8 +299,7 @@ def _build_summary_email(
 
     host_name = socket.gethostname()
 
-    body = "\n".join(
-        [
+    body_lines = [
             "微信工作流运行总结",
             "",
             f"result_label: {label}",
@@ -317,11 +321,28 @@ def _build_summary_email(
             f"- wechat_connectivity: {wechat_step.get('status', 'unknown')}",
             f"- draft_publish: {draft_step.get('status', 'unknown')}",
             f"- ai_enhance: {ai_step.get('status', 'unknown')}",
+            f"  error: {ai_step.get('error')}" if ai_step.get("error") else "",
             f"- git_sync: {git_step.get('status', 'unknown')}",
             f"- xiaohongshu_copy: {xhs_step.get('status', 'unknown')}",
             "",
+            "云端数据库同步:",
+            f"- daily_jsonl: {daily_jsonl.get('status', 'unknown')}",
+            f"- jsonl_path: {daily_jsonl.get('jsonl_path', '')}",
+            f"- records: {daily_jsonl.get('count', 0)}",
+            f"- upload_enabled: {daily_jsonl.get('upload_enabled', False)}",
+            f"- upload_status: {daily_upload.get('status', 'unknown')}",
+            f"- table: {daily_upload.get('table', '')}",
+            f"- total: {daily_upload.get('total', 0)}",
+            f"- created: {daily_upload.get('created', 0)}",
+            f"- updated: {daily_upload.get('updated', 0)}",
+            f"- failed: {daily_upload.get('failed', 0)}",
+            f"- meta_update_status: {meta_update.get('status', 'unknown')}",
+            f"- meta_update_date: {meta_update.get('date', '')}",
+            f"- meta_update_error: {meta_update.get('error', '')}",
+            f"- errors: {daily_upload.get('errors', [])}",
+            "",
         ]
-    )
+    body = "\n".join(line for line in body_lines if line != "") + "\n"
     xhs_content = str(xhs_payload.get("content", "")).strip()
     if xhs_content:
         body += "\n".join(

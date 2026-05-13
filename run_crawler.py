@@ -26,6 +26,14 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'arxiv_crawler'))
 
 from arxiv_crawler import ArxivScraper
 from ai.enhance import ensure_ai_enhancement_quality
+from daily_jsonl_export import (
+    export_daily_jsonl,
+    update_papers_meta_in_cloudbase,
+    upload_daily_jsonl_to_cloudbase,
+)
+
+
+LAST_DAILY_JSONL_EXPORT_RESULT: dict = {}
 
 
 def _is_true(raw: str | None, default: bool = False) -> bool:
@@ -85,6 +93,83 @@ def _build_official_fallback_config(current_model_name: str) -> dict:
     }
 
 
+def _export_daily_jsonl_and_maybe_upload(crawl_date: str, language: str) -> tuple[Path, int]:
+    global LAST_DAILY_JSONL_EXPORT_RESULT
+    output_path, count = export_daily_jsonl(crawl_date, language=language)
+    LAST_DAILY_JSONL_EXPORT_RESULT = {
+        "status": "exported" if count > 0 else "empty",
+        "date": crawl_date,
+        "language": language,
+        "jsonl_path": str(output_path),
+        "count": count,
+        "upload_enabled": _is_true(os.environ.get("DAILY_JSONL_UPLOAD_CLOUDBASE"), False),
+        "upload": {"status": "pending"},
+    }
+    print(f"已生成云端导入JSONL: {output_path}，共 {count} 条")
+
+    if count <= 0:
+        LAST_DAILY_JSONL_EXPORT_RESULT["upload"] = {"status": "skipped", "reason": "empty_export"}
+        raise RuntimeError(
+            f"AI 增强结果为空，已跳过 CloudBase 上传: date={crawl_date}, language={language}"
+        )
+
+    if not _is_true(os.environ.get("DAILY_JSONL_UPLOAD_CLOUDBASE"), False):
+        LAST_DAILY_JSONL_EXPORT_RESULT["upload"] = {"status": "skipped", "reason": "disabled"}
+        return output_path, count
+
+    table = os.environ.get("CLOUDBASE_TABLE") or os.environ.get("DEFAULT_TABLE") or "papers"
+    raw_limit = os.environ.get("DAILY_JSONL_UPLOAD_LIMIT", "").strip()
+    limit = int(raw_limit) if raw_limit else None
+    print(f"开始上传每日 JSONL 到 CloudBase: table={table}, limit={limit or 'all'}")
+    upload_result = upload_daily_jsonl_to_cloudbase(output_path, table=table, limit=limit)
+    upload_failed = upload_result.get("failed", 0)
+    LAST_DAILY_JSONL_EXPORT_RESULT["upload"] = {
+        "status": "success" if upload_failed == 0 else "partial_failed",
+        "table": table,
+        "limit": limit,
+        **upload_result,
+    }
+    print(f"CloudBase 上传完成: {json.dumps(upload_result, ensure_ascii=False)}")
+
+    if upload_failed:
+        LAST_DAILY_JSONL_EXPORT_RESULT["meta_update"] = {
+            "status": "skipped",
+            "reason": "upload_failed",
+            "failed": upload_failed,
+        }
+        raise RuntimeError(
+            f"CloudBase 上传存在失败记录，已跳过 papers_meta 更新: "
+            f"failed={upload_failed}, total={upload_result.get('total', 0)}"
+        )
+
+    if limit is not None:
+        LAST_DAILY_JSONL_EXPORT_RESULT["meta_update"] = {
+            "status": "skipped",
+            "reason": "upload_limit_set",
+            "limit": limit,
+        }
+        print(f"已设置 DAILY_JSONL_UPLOAD_LIMIT={limit}，跳过 papers_meta 更新")
+        return output_path, count
+
+    print(f"开始更新 CloudBase papers_meta: date={crawl_date}")
+    try:
+        meta_result = update_papers_meta_in_cloudbase(crawl_date)
+    except Exception as exc:
+        LAST_DAILY_JSONL_EXPORT_RESULT["meta_update"] = {
+            "status": "failed",
+            "date": crawl_date,
+            "error": str(exc),
+        }
+        raise
+    LAST_DAILY_JSONL_EXPORT_RESULT["meta_update"] = {
+        "status": "success",
+        "date": crawl_date,
+        **meta_result,
+    }
+    print(f"CloudBase papers_meta 更新完成: {json.dumps(meta_result, ensure_ascii=False)}")
+    return output_path, count
+
+
 @contextmanager
 def _temporary_env(overrides: dict[str, str]):
     old_values = {}
@@ -121,6 +206,7 @@ def _run_ai_enhance_for_provider(
         max_workers=max_workers,
         provider=provider,
     )
+    _export_daily_jsonl_and_maybe_upload(crawl_date, language)
     print(f"更新assets/file-list.txt...")
     update_file_list(crawl_date)
 
@@ -290,6 +376,7 @@ def ai_enhance_only(date_set=None):
     reuse_existing, reuse_message = _check_existing_ai_enhanced_output(crawl_date, language)
     if reuse_existing:
         print(f"检测到已有可复用的 AI 增强结果，直接跳过: {reuse_message}")
+        _export_daily_jsonl_and_maybe_upload(crawl_date, language)
         print("更新assets/file-list.txt...")
         update_file_list(crawl_date)
         return True
