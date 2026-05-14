@@ -110,6 +110,8 @@ def _parse_list_items(block: str, ordered: bool = False) -> list[str]:
 # 主转换函数
 # =========================
 def md_to_xuanji_html(md_text, brand_logo_url=None):
+    md_text = re.sub(r"(?m)(?<!^)^(?!\s*$)(.*\S)\n(!\[[^\]]*\]\([^\)]*\))\s*$", r"\1\n\n\2", md_text)
+    md_text = re.sub(r"(?m)^(!\[[^\]]*\]\([^\)]*\))\n(\S.*)$", r"\1\n\n\2", md_text)
     html_parts = []
     # `None` means "use the configured default logo"; an empty string means
     # "explicitly disable the logo for this render".
@@ -175,7 +177,21 @@ def md_to_xuanji_html(md_text, brand_logo_url=None):
     html_parts.append(PROFILE_HTML)
 
     md_text = re.sub(r'\\([*.~_\-`#])', r'\1', md_text)
-    blocks = re.split(r'\n\s*\n', md_text.strip())
+    raw_blocks = re.split(r'\n\s*\n', md_text.strip())
+    blocks = []
+    image_line_pattern = re.compile(r'^!\[[^\]]*\]\([^\)]*\)\s*$')
+    for raw_block in raw_blocks:
+        current_lines = []
+        for line in raw_block.splitlines():
+            if image_line_pattern.match(line.strip()):
+                if current_lines:
+                    blocks.append("\n".join(current_lines).strip())
+                    current_lines = []
+                blocks.append(line.strip())
+            else:
+                current_lines.append(line)
+        if current_lines:
+            blocks.append("\n".join(current_lines).strip())
     in_abstract = False
 
     for block in blocks:

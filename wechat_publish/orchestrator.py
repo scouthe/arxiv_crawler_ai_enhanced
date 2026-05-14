@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import logging
 from datetime import date
@@ -452,10 +453,25 @@ def run_pipeline(
         try:
             ai_ok = ai_enhance_only(date_set=config.date_str)
             if not ai_ok:
-                raise RuntimeError("ai_enhance_only returned False")
-            diagnostics["steps"]["ai_enhance"] = {"status": "success"}
+                raise RuntimeError(
+                    "AI 增强失败或结果为空，CloudBase 上传已跳过；请检查当日 arXiv 数据和 AI 增强输出"
+                )
+            run_crawler_module = sys.modules.get("run_crawler")
+            daily_export_result = getattr(run_crawler_module, "LAST_DAILY_JSONL_EXPORT_RESULT", {})
+            diagnostics["steps"]["ai_enhance"] = {
+                "status": "success",
+                "daily_jsonl": daily_export_result,
+            }
+            diagnostics["daily_jsonl_export"] = daily_export_result
         except Exception as exc:
-            diagnostics["steps"]["ai_enhance"] = {"status": "failed", "error": str(exc)}
+            run_crawler_module = sys.modules.get("run_crawler")
+            daily_export_result = getattr(run_crawler_module, "LAST_DAILY_JSONL_EXPORT_RESULT", {})
+            diagnostics["steps"]["ai_enhance"] = {
+                "status": "failed",
+                "error": str(exc),
+                "daily_jsonl": daily_export_result,
+            }
+            diagnostics["daily_jsonl_export"] = daily_export_result
             _raise_with_diagnostics(f"ai enhance failed: {exc}", diagnostics)
     else:
         reason = "arxiv_module_disabled" if not run_arxiv_module else "arxiv_module_failed"

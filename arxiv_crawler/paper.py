@@ -320,6 +320,27 @@ class PaperDatabase:
                 (date.strftime("%Y-%m-%d"),),
             )
             return cursor.fetchall()
+
+    def count_papers_on_date(self, date: datetime) -> int:
+        with self.conn:
+            cursor = self.conn.execute(
+                """
+                SELECT COUNT(*) AS count FROM papers WHERE first_announced_date = ?
+                """,
+                (date.strftime("%Y-%m-%d"),),
+            )
+            result = cursor.fetchone()
+            return int(result["count"]) if result else 0
+
+    def delete_papers_on_date(self, date: datetime) -> int:
+        with self.conn:
+            cursor = self.conn.execute(
+                """
+                DELETE FROM papers WHERE first_announced_date = ?
+                """,
+                (date.strftime("%Y-%m-%d"),),
+            )
+            return cursor.rowcount
     
     def fetch_jsonl_data_on_date(self, date: datetime) -> list[dict]:
         """
