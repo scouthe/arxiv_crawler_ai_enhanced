@@ -61,6 +61,8 @@ class ArxivScraper(object):
         # 从环境变量获取可选关键词
         env_keywords = os.environ.get("OPTIONAL_KEYWORDS", "cs.CV,cs.AI,cs.DS,cs.ET,cs.HC,cs.NE,cs.RO,cs.SD,eess.AS,eess.IV")
         default_keywords = [kw.strip() for kw in env_keywords.split(",") if kw.strip()]
+
+        self.target_date = datetime.strptime(date_from, "%Y-%m-%d")
         
         # announced_date_first 日期处理为年月，从from到until的所有月份都会被爬取
         # 如果from和until是同一个月，则until设置为下个月(from+31)
@@ -94,6 +96,7 @@ class ArxivScraper(object):
         # 使用用户提供的原始日期初始化PaperExporter，只生成指定日期的文件
         self.paper_exporter = PaperExporter(date_from, date_until, self.category_blacklist, self.category_whitelist)
         self.console = Console()
+        self.pinned_announced_date = None
 
     @property
     def meta_data(self):
@@ -156,6 +159,7 @@ class ArxivScraper(object):
         """
         (aio)获取所有文章
         """
+        self.pinned_announced_date = None
         # 获取前50篇文章并记录总数
         self.console.log(f"[bold green]Fetching the first {self.step} papers...")
         self.console.print(f"[grey] {self.get_url(0)}")
@@ -212,11 +216,15 @@ class ArxivScraper(object):
             await self.translate()
         self.process_papers()
 
-    def fetch_update(self):
+    def fetch_update(self, force_target_date: bool = False):
         """
         更新文章, 这会从最新公布的文章开始更新, 直到遇到已经爬取过的文章为止。
         为了效率，建议在运行fetch_all后再运行fetch_update
+
+        Args:
+            force_target_date: 为 True 时，强制从 target_date 开始补抓，忽略数据库已最新的短路逻辑。
         """
+        self.pinned_announced_date = None
         # 当前时间
         utc_now = datetime.now(UTC).replace(tzinfo=None)
         # 上一次更新最新文章的UTC时间. 除了更新新文章外也可能重新爬取了老文章, 数据库只看最新文章的时间戳。
@@ -227,10 +235,36 @@ class ArxivScraper(object):
                          f"next arxiv update: {self.search_from_date.strftime('%Y-%m-%d')}" 
                          )
         self.console.log(f"[bold yellow]UTC now: {utc_now.strftime('%Y-%m-%d %H:%M:%S')}")
+        if force_target_date:
+            self.console.log(
+                f"[bold yellow]Force refetch enabled for target date {self.target_date.strftime('%Y-%m-%d')}."
+            )
+            deleted_count = self.paper_db.delete_papers_on_date(self.target_date)
+            self.console.log(
+                f"[bold yellow]Deleted {deleted_count} existing papers on target date before refetch."
+            )
+            self.search_from_date = self.target_date
+            self.first_announced_date = self.target_date
+            # CLI 指定 --date/--force-refetch-date 时，仅保留目标日期的论文，
+            # 最终写库日期也固定为目标日，避免混入相邻日期。
+            self.pinned_announced_date = self.target_date
         # 如果还没到更新时间就不更新了
-        if self.search_from_date >= utc_now:
-            self.console.log(f"[bold red]Your database is already up to date.")
-            return
+        if not force_target_date and self.search_from_date >= utc_now:
+            if last_update.date() == self.target_date.date():
+                existing_count = self.paper_db.count_papers_on_date(self.target_date)
+                if existing_count == 0:
+                    self.console.log(
+                        f"[bold yellow]No papers found on target date {self.target_date.strftime('%Y-%m-%d')} "
+                        f"despite last update being today. Force refetching target date."
+                    )
+                    self.search_from_date = self.target_date
+                    self.first_announced_date = self.target_date
+                else:
+                    self.console.log(f"[bold red]Your database is already up to date.")
+                    return
+            else:
+                self.console.log(f"[bold red]Your database is already up to date.")
+                return
         # 如果这一次的更新时间恰好是这个月的第一个更新日，那么当日更新的文章都会出现在上个月的搜索结果中
         # 为了正确获得这天的文章，我们上推一个月的搜索时间
         self.first_announced_date = self.search_from_date
@@ -242,14 +276,29 @@ class ArxivScraper(object):
                 f"[bold green]Searching from {self.search_from_date.strftime('%Y-%m-%d')} "
                 f"to {self.search_until_date.strftime('%Y-%m-%d')}, fetch the first {self.step} papers..."
             )
+        if self.total is None:
+            # 先探测第一页拿到 total。此前这里只在 resume 模式下执行，
+            # 导致普通强制补抓时 self.total 仍为 None，后续 start_points 为空。
+            self.console.log(f"[bold yellow]Initial probe: {self.get_url(0)}")
+            probe_content = asyncio.run(self.request(0))
+            if probe_content is None:
+                self.console.log("[bold red]Initial probe failed, cannot determine total results.")
+                return
+            self.parse_search_html(probe_content)
+
         self.console.print(f"[grey] {self.get_url(0)}")
 
-        continue_update = self.update(0)
-        for start in range(self.step, self.total, self.step):
+        start_points = list(range(0, self.total, self.step)) if self.total is not None else []
+        continue_update = True
+        for start in start_points:
+            continue_update = self.update(
+                start,
+                stop_on_existing=not force_target_date,
+                target_date_filter=self.target_date if force_target_date else None,
+            )
             if not continue_update:
                 break
 
-            continue_update = self.update(start)
         self.console.log(f"[bold green]Fetching completed. {len(self.papers)} new papers.")
         if self.trans_to:
             asyncio.run(self.translate())
@@ -259,6 +308,16 @@ class ArxivScraper(object):
         """
         推断文章的首次公布日期, 并将文章添加到数据库中
         """
+        if self.pinned_announced_date is not None:
+            announced_date = self.pinned_announced_date
+            self.console.log(
+                f"pinned first announced date: {announced_date.strftime('%Y-%m-%d')}"
+            )
+            for paper in self.papers:
+                paper.first_announced_date = announced_date
+            self.paper_db.add_papers(self.papers)
+            return
+
         # 从下一个可能的公布日期开始
         announced_date = next_arxiv_update_day(self.first_announced_date)   
         self.console.log(f"fisrt announced date: {announced_date.strftime('%Y-%m-%d')}")
@@ -285,15 +344,53 @@ class ArxivScraper(object):
                     f"{paper.url},{paper.title},{paper.first_announced_date.strftime('%Y-%m-%d')},{paper.first_submitted_date.strftime('%Y-%m-%d')}\n"
                 )
 
-    def update(self, start) -> bool:
+    def update(self, start, stop_on_existing: bool = True, target_date_filter: datetime | None = None) -> bool:
         content = asyncio.run(self.request(start))
         if content is None:
             self.console.log(f"[bold red]Failed to fetch content for start={start}, skipping...")
             return False
-        self.papers.extend(self.parse_search_html(content))
-        cnt_new = self.paper_db.count_new_papers(self.papers[-self.step:])
-        if cnt_new < self.step:
-            self.papers = self.papers[:-cnt_new]
+        raw_page_papers = self.parse_search_html(content)
+        if not raw_page_papers:
+            self.console.log(f"[bold yellow]No papers parsed for start={start}, stopping...")
+            return False
+
+        page_papers = raw_page_papers
+        reached_older_target_date = False
+        if target_date_filter is not None:
+            target_day = target_date_filter.replace(hour=0, minute=0, second=0, microsecond=0)
+            filtered_page_papers = []
+            for paper in raw_page_papers:
+                inferred_announced_date = next_arxiv_update_day(
+                    paper.first_submitted_date + timedelta(days=1)
+                )
+                if inferred_announced_date > target_day:
+                    continue
+                if inferred_announced_date < target_day:
+                    reached_older_target_date = True
+                    break
+                filtered_page_papers.append(paper)
+            page_papers = filtered_page_papers
+
+        self.papers.extend(page_papers)
+        current_page = self.papers[-len(page_papers):] if page_papers else []
+        cnt_new = self.paper_db.count_new_papers(current_page) if current_page else 0
+        self.console.log(
+            f"[bold yellow]Page start={start}: parsed={len(raw_page_papers)}, kept={len(page_papers)}, "
+            f"new={cnt_new}, stop_on_existing={stop_on_existing}, reached_older_target_date={reached_older_target_date}"
+        )
+        if target_date_filter is not None:
+            if reached_older_target_date:
+                self.console.log(
+                    f"[bold green]Reached papers older than target date "
+                    f"{target_date_filter.strftime('%Y-%m-%d')}, stopping pagination."
+                )
+                return False
+            return len(raw_page_papers) == self.step
+        if not stop_on_existing:
+            return len(page_papers) == self.step
+        if cnt_new < len(page_papers):
+            # Keep previously collected papers and only retain the new prefix from this page.
+            self.papers = self.papers[:-len(page_papers)] + current_page[:cnt_new]
             return False
         else:
             return True

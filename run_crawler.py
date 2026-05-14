@@ -266,17 +266,19 @@ def _check_existing_ai_enhanced_output(crawl_date: str, language: str) -> tuple[
         f"{target_file.name} 已存在且质量校验通过，共 {quality_stats['valid_count']} 条",
     )
 
-def crawl_only(all=False, date_set=None):
+def crawl_only(all=False, date_set=None, force_refetch_date=None):
     """
     仅运行arxiv爬虫，生成标准JSONL文件，不执行AI增强
     
     Args:
         all (bool): 是否全量更新，默认为False
         date_set (str): 要爬取的日期，格式为YYYY-MM-DD，默认为今天的日期
+        force_refetch_date (bool | None): 是否强制补抓指定日期，跳过增量模式的 up-to-date 检查
     """
     # 从环境变量读取配置
     env_all = os.environ.get("CRAWL_ALL", "false").lower()
     env_date = os.environ.get("CRAWL_DATE", "")
+    env_force_refetch_date = _is_true(os.environ.get("FORCE_REFETCH_DATE"), False)
     env_category_blacklist = os.environ.get("CATEGORY_BLACKLIST", "")
     env_category_whitelist = os.environ.get("CATEGORY_WHITELIST", "")
     env_optional_keywords = os.environ.get("OPTIONAL_KEYWORDS", "")
@@ -288,6 +290,7 @@ def crawl_only(all=False, date_set=None):
     print("\n--- 环境变量配置 ---")
     print(f"CRAWL_ALL: {env_all}")
     print(f"CRAWL_DATE: {env_date}")
+    print(f"FORCE_REFETCH_DATE: {env_force_refetch_date}")
     print(f"CATEGORY_BLACKLIST: {env_category_blacklist}")
     print(f"CATEGORY_WHITELIST: {env_category_whitelist}")
     print(f"OPTIONAL_KEYWORDS: {env_optional_keywords}")
@@ -299,8 +302,13 @@ def crawl_only(all=False, date_set=None):
     # 优先使用函数参数，其次使用环境变量，最后使用默认值
     crawl_all = all if all is not None else (env_all == "true" or env_all == "1")
     crawl_date = date_set if date_set is not None else (env_date if env_date else date.today().strftime("%Y-%m-%d"))
-    
-    print(f"开始爬取 {crawl_date} 的论文数据，模式：{'全量更新' if crawl_all else '增量更新'}")
+    force_refetch = (
+        env_force_refetch_date if force_refetch_date is None else force_refetch_date
+    )
+    mode_label = "全量更新" if crawl_all else "增量更新"
+    if force_refetch and not crawl_all:
+        mode_label += "（强制补抓指定日期）"
+    print(f"开始爬取 {crawl_date} 的论文数据，模式：{mode_label}")
     
     # 创建ArxivScraper实例
     scraper = ArxivScraper(
@@ -315,7 +323,9 @@ def crawl_only(all=False, date_set=None):
             asyncio.run(scraper.fetch_all())
         else:
             # 当天增量更新
-            scraper.fetch_update()
+            scraper.fetch_update(
+                force_target_date=force_refetch,
+            )
         
             print(f"生成markdown文件...")
             scraper.to_markdown(meta=True)
@@ -455,28 +465,37 @@ def ai_enhance_only(date_set=None):
         return False
 
 
-def run_crawler(all=False, date_set=None):
+def run_crawler(all=False, date_set=None, force_refetch_date=None):
     """
     运行完整流程：arxiv爬虫 + AI增强 + 文件列表更新
     
     Args:
         all (bool): 是否全量更新，默认为False
         date_set (str): 要爬取的日期，格式为YYYY-MM-DD，默认为今天的日期
+        force_refetch_date (bool | None): 是否强制补抓指定日期，跳过增量模式的 up-to-date 检查
     """
     # 从环境变量读取配置
     env_all = os.environ.get("CRAWL_ALL", "false").lower()
     env_date = os.environ.get("CRAWL_DATE", "")
+    env_force_refetch_date = _is_true(os.environ.get("FORCE_REFETCH_DATE"), False)
     env_max_workers = os.environ.get("MAX_WORKERS", "4")
     
     # 优先使用函数参数，其次使用环境变量，最后使用默认值
     crawl_all = all if all is not None else (env_all == "true" or env_all == "1")
     crawl_date = date_set if date_set is not None else (env_date if env_date else date.today().strftime("%Y-%m-%d"))
+    force_refetch = (
+        env_force_refetch_date if force_refetch_date is None else force_refetch_date
+    )
     max_workers = int(env_max_workers) if env_max_workers.isdigit() else 4
     
     print(f"开始完整流程：爬取 + AI增强，日期：{crawl_date}，模式：{'全量更新' if crawl_all else '增量更新'}")
     
     # 首先执行爬取
-    if not crawl_only(all=crawl_all, date_set=crawl_date):
+    if not crawl_only(
+        all=crawl_all,
+        date_set=crawl_date,
+        force_refetch_date=force_refetch,
+    ):
         print("爬取失败，终止完整流程")
         return False
     
@@ -550,11 +569,20 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="运行arxiv crawler爬虫，生成JSONL文件并更新assets/file-list.txt")
     parser.add_argument('--all', action='store_true', default=False, help='爬取当月全部信息，还是只爬取当天信息')
     parser.add_argument('--date', type=str, help='指定要爬取的日期，格式为YYYY-MM-DD。')
-    
+    parser.add_argument(
+        '--force-refetch-date',
+        action='store_true',
+        default=False,
+        help='强制重抓 --date 指定日期：删除当天已有记录，忽略已抓取/已最新判断，并重新入库覆盖当天结果。',
+    )
     args = parser.parse_args()
     
     # 运行爬虫
-    # success = crawl_only(args.all, args.date)
+    success = crawl_only(
+        all=args.all,
+        date_set=args.date,
+        force_refetch_date=args.force_refetch_date,
+    )
     success = ai_enhance_only( args.date)
     
     # 设置退出码
