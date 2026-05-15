@@ -61,7 +61,14 @@ PROFILE_HTML = """<section class="mp_profile_iframe_wrp" nodeleaf="">
   </mp-style-type>
 </p>"""
 
-LINK_SECTION = '<section style="text-align: center; margin: 0 auto 30px; line-height: 1.6; font-family: -apple-system-font,BlinkMacSystemFont, Arial,sans-serif; font-size: 15px;"><span style="color: #555;">本文只展示部分论文，全部详情，AI总结请访问，或点击阅读原文</span><br><a href="https://scouthe.github.io/arxiv_crawler_ai_enhanced/" style="color: #0F4C81; text-decoration: underline; font-weight: bold; word-break: break-all;">https://scouthe.github.io/arxiv_crawler_ai_enhanced/</a></section><p style="font-size: 0px; line-height: 0; margin: 0px;">&nbsp;</p>'
+LINK_SECTION = '''<section style="text-align: center;margin: 0 auto 30px;line-height: 1.6;font-family: -apple-system-font,BlinkMacSystemFont, Arial,sans-serif;font-size: 15px;">
+  <span style="color: #555;"><span leaf="">本文只展示部分论文，全部详情，AI总结请访问官方小程序</span></span>
+  <span leaf=""><br></span>
+</section>
+<section nodeleaf="">
+  <mp-common-miniprogram class="js_uneditable custom_select_card mp_miniprogram_iframe" data-pluginname="insertminiprogram" data-miniprogram-path="pages/discover/discover" data-miniprogram-nickname="计算机科研助手" data-miniprogram-avatar="http://mmbiz.qpic.cn/sz_mmbiz_png/DianmG2W8OaVicb2ho9z0BjGEHhEsjc5UMLJaNmVn66cw5N9EYfNrGNIbrMFiaagl8yoEErYLeicKwicyVaWjqg8zf13UeUhvYwdsz64NoWOBtvg/640?wx_fmt=png&amp;wxfrom=200" data-miniprogram-title="arxiv日更，订阅，检索" data-miniprogram-imageurl="http://mmbiz.qpic.cn/sz_mmbiz_jpg/Bps2mXQvSQhq98Ner8yiaw8Q6VzVPpuDZicJRs5VicoEoY58XmQA6e6TEM3icndBfuibFAcYQEpPADvTQpK3vyicpLQ9nhxVuibCzFvuYWoibWFrOhU/0?wx_fmt=jpeg" data-miniprogram-type="card" data-miniprogram-servicetype="0" data-miniprogram-appid="wx29f8d656f5e71e6a" data-miniprogram-imageurlback="http%3A%2F%2Fmmbiz.qpic.cn%2Fmmbiz_png%2FBps2mXQvSQj7hrwU9XLC2lYH16PR5FqdBZxbxic8Vzw3oGIdDiaAUyiaJEH25CuHA27b8g9OchYk2flA57WA2IpdjNEHDyEaObtqFPjlhShu3c%2F0%3Fwx_fmt%3Dpng" data-miniprogram-cropperinfo="%7B%22c%22%3A%7B%22x%22%3A0%2C%22y%22%3A0%2C%22x2%22%3A245%2C%22y2%22%3A196%2C%22w%22%3A245%2C%22h%22%3A196%7D%7D">
+  </mp-common-miniprogram>
+</section>'''
 
 BOTTOM_FOOTER = '<p style="text-align: center; color: #888; font-size: 14px; margin-top: 20px;">机器翻译由谷歌翻译提供，仅供参考</p><p style="text-align: center; color: #888; font-size: 14px; margin-top: 20px;">点击阅读原文看详细论文内容，AI总结</p>'
 
